@@ -1,0 +1,20 @@
+services:
+  shopmate:
+    build: .
+    container_name: shopmate-agent
+    ports:
+      - "8000:8000"
+
+    env_file:
+      - .env
+
+    environment:
+      SHOPMATE_DB_PATH: /app/data/shopmate.db
+      SHOPMATE_LOG_DIR: /app/logs
+
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+
+    restart: unless-stopped

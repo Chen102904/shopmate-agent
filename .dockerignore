@@ -1,0 +1,13 @@
+.venv/
+.idea/
+.pytest_cache/
+__pycache__/
+*.pyc
+.env
+.git/
+logs/
+data/shopmate.db
+models/
+tests/
+structure.txt
+pytest-index.html
