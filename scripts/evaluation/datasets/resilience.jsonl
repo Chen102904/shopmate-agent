@@ -1,0 +1,12 @@
+# 容错能力评测集 v1 — 8 条
+# 通过 unittest.mock 注入故障，验证降级路径。
+# 明确说明：这是 mock 注入测试，不等于真实故障演练。
+# fault 类型由脚本实现
+{"id":"F01","category":"主模型超时","fault":"llm_timeout","question":"帮我查一下 ORD001 的订单状态","expect":"切换到备用模型并给出回答","note":"模拟主模型 TimeoutError"}
+{"id":"F02","category":"主模型 5xx","fault":"llm_500","question":"ORD001 能退款吗","expect":"切换到备用模型并给出回答","note":"模拟主模型返回 500"}
+{"id":"F03","category":"主备全挂","fault":"all_llm_down","question":"商品签收超过7天还能退款吗","expect":"返回友好降级文案，不抛异常","note":"三个模型全部失败"}
+{"id":"F04","category":"工具抛异常","fault":"tool_exception","question":"帮我查一下 ORD001 的订单状态","expect":"把错误回填给模型，不返回 500","note":"execute_tool 内部抛错"}
+{"id":"F05","category":"工具返回非法 JSON","fault":"tool_bad_json","question":"查 ORD001 订单","expect":"不崩溃，模型仍能给出回应","note":"返回不可解析内容"}
+{"id":"F06","category":"模型返回非法工具名","fault":"unknown_tool","question":"查一下订单 ORD001","expect":"返回未知工具错误并继续，不崩溃","note":"模拟模型编造工具名"}
+{"id":"F07","category":"超过最大轮数","fault":"max_rounds","question":"查 ORD001 订单，再看物流，再看能不能退","expect":"达到 5 轮上限后返回提示文案","note":"模拟模型反复调工具不收敛"}
+{"id":"F08","category":"RAG 初始化失败","fault":"rag_missing_model","question":"退货政策是什么","expect":"返回可读错误或降级提示，服务不整体崩溃","note":"模拟 bge 模型目录缺失"}

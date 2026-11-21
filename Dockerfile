@@ -19,6 +19,10 @@ COPY app ./app
 COPY main.py .
 COPY data/knowledge ./data/knowledge
 
+# 演示用聊天页面。不拷的话 / 会 404，
+# 但 API 仍然可用（main.py 里判断了目录不存在就跳过挂载）。
+COPY web ./web
+
 RUN mkdir -p /app/data /app/logs
 
 EXPOSE 8000

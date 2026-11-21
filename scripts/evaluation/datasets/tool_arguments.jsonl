@@ -1,0 +1,36 @@
+# 工具参数评测集 v1 — 30 条
+# expected.calls 是完整调用序列（有序）；types 用于参数类型检查
+# 设计说明：
+#   - 20 条单工具（每个工具 5 条）
+#   - 6 条双工具（考察多调用下的参数独立性）
+#   - 4 条边界（小写订单号、订单号带空格、参数冗余、缺参数）
+{"id":"A01","category":"single","input":"帮我查一下 ORD001 的订单状态","expected":{"calls":[{"tool":"get_order","arguments":{"order_id":"ORD001"},"types":{"order_id":"str"}}]},"note":"标准"}
+{"id":"A02","category":"single","input":"查 ORD002 的订单信息","expected":{"calls":[{"tool":"get_order","arguments":{"order_id":"ORD002"},"types":{"order_id":"str"}}]},"note":"标准"}
+{"id":"A03","category":"single","input":"订单 ORD003 多少钱","expected":{"calls":[{"tool":"get_order","arguments":{"order_id":"ORD003"},"types":{"order_id":"str"}}]},"note":"单号在句中"}
+{"id":"A04","category":"single","input":"我想知道 ORD001 什么时候下的单","expected":{"calls":[{"tool":"get_order","arguments":{"order_id":"ORD001"},"types":{"order_id":"str"}}]},"note":"问时间"}
+{"id":"A05","category":"single","input":"看一下 ORD002 这一单","expected":{"calls":[{"tool":"get_order","arguments":{"order_id":"ORD002"},"types":{"order_id":"str"}}]},"note":"省略表达"}
+{"id":"A06","category":"single","input":"ORD002 的物流到哪里了","expected":{"calls":[{"tool":"get_logistics","arguments":{"order_id":"ORD002"},"types":{"order_id":"str"}}]},"note":"标准"}
+{"id":"A07","category":"single","input":"查物流，订单号 ORD003","expected":{"calls":[{"tool":"get_logistics","arguments":{"order_id":"ORD003"},"types":{"order_id":"str"}}]},"note":"单号后置"}
+{"id":"A08","category":"single","input":"ORD002 的快递到哪了","expected":{"calls":[{"tool":"get_logistics","arguments":{"order_id":"ORD002"},"types":{"order_id":"str"}}]},"note":"快递=物流"}
+{"id":"A09","category":"single","input":"帮我看看 ORD001 的运输状态","expected":{"calls":[{"tool":"get_logistics","arguments":{"order_id":"ORD001"},"types":{"order_id":"str"}}]},"note":"运输=物流"}
+{"id":"A10","category":"single","input":"ORD003 签收了吗","expected":{"calls":[{"tool":"get_logistics","arguments":{"order_id":"ORD003"},"types":{"order_id":"str"}}]},"note":"签收查询"}
+{"id":"A11","category":"single","input":"ORD001 现在可以退款吗","expected":{"calls":[{"tool":"check_refund_eligibility","arguments":{"order_id":"ORD001"},"types":{"order_id":"str"}}]},"note":"标准"}
+{"id":"A12","category":"single","input":"帮我检查 ORD001 的退款资格","expected":{"calls":[{"tool":"check_refund_eligibility","arguments":{"order_id":"ORD001"},"types":{"order_id":"str"}}]},"note":"明确说资格"}
+{"id":"A13","category":"single","input":"ORD002 能退钱吗","expected":{"calls":[{"tool":"check_refund_eligibility","arguments":{"order_id":"ORD002"},"types":{"order_id":"str"}}]},"note":"口语"}
+{"id":"A14","category":"single","input":"ORD003 可以申请退款吗","expected":{"calls":[{"tool":"check_refund_eligibility","arguments":{"order_id":"ORD003"},"types":{"order_id":"str"}}]},"note":"标准"}
+{"id":"A15","category":"single","input":"这单能不能退，订单号是 ORD001","expected":{"calls":[{"tool":"check_refund_eligibility","arguments":{"order_id":"ORD001"},"types":{"order_id":"str"}}]},"note":"单号后置"}
+{"id":"A16","category":"single","input":"商品签收超过7天还能退款吗","expected":{"calls":[{"tool":"search_after_sales_policy","arguments":{"query":"商品签收超过7天还能退款吗"},"types":{"query":"str"}}],"query_flexible":true},"note":"query 允许改写，只校验非空与关键信息"}
+{"id":"A17","category":"single","input":"退货政策是什么","expected":{"calls":[{"tool":"search_after_sales_policy","arguments":{"query":"退货政策"},"types":{"query":"str"}}],"query_flexible":true},"note":"query 允许改写"}
+{"id":"A18","category":"single","input":"换货需要什么条件","expected":{"calls":[{"tool":"search_after_sales_policy","arguments":{"query":"换货条件"},"types":{"query":"str"}}],"query_flexible":true},"note":"query 允许改写"}
+{"id":"A19","category":"single","input":"物流异常怎么处理","expected":{"calls":[{"tool":"search_after_sales_policy","arguments":{"query":"物流异常怎么处理"},"types":{"query":"str"}}],"query_flexible":true},"note":"query 允许改写"}
+{"id":"A20","category":"single","input":"什么时候需要联系人工客服","expected":{"calls":[{"tool":"search_after_sales_policy","arguments":{"query":"什么时候联系人工客服"},"types":{"query":"str"}}],"query_flexible":true},"note":"query 允许改写"}
+{"id":"A21","category":"multi","input":"ORD001 能退吗，另外签收超过7天的政策是什么","expected":{"calls":[{"tool":"check_refund_eligibility","arguments":{"order_id":"ORD001"},"types":{"order_id":"str"}},{"tool":"search_after_sales_policy","arguments":{"query":"签收超过7天退款政策"},"types":{"query":"str"}}],"query_flexible":true},"note":"双工具，各自参数"}
+{"id":"A22","category":"multi","input":"ORD002 到哪了，物流异常一般怎么规定","expected":{"calls":[{"tool":"get_logistics","arguments":{"order_id":"ORD002"},"types":{"order_id":"str"}},{"tool":"search_after_sales_policy","arguments":{"query":"物流异常规定"},"types":{"query":"str"}}],"query_flexible":true},"note":"双工具"}
+{"id":"A23","category":"multi","input":"查 ORD001 订单，再看能不能退款","expected":{"calls":[{"tool":"get_order","arguments":{"order_id":"ORD001"},"types":{"order_id":"str"}},{"tool":"check_refund_eligibility","arguments":{"order_id":"ORD001"},"types":{"order_id":"str"}}]},"note":"双工具，同订单号"}
+{"id":"A24","category":"multi","input":"ORD002 的订单状态和物流状态都给我","expected":{"calls":[{"tool":"get_order","arguments":{"order_id":"ORD002"},"types":{"order_id":"str"}},{"tool":"get_logistics","arguments":{"order_id":"ORD002"},"types":{"order_id":"str"}}],"order_sensitive":false},"note":"双工具，顺序无关"}
+{"id":"A25","category":"multi","input":"ORD003 能退吗，退货政策也讲一下","expected":{"calls":[{"tool":"check_refund_eligibility","arguments":{"order_id":"ORD003"},"types":{"order_id":"str"}},{"tool":"search_after_sales_policy","arguments":{"query":"退货政策"},"types":{"query":"str"}}],"query_flexible":true,"order_sensitive":false},"note":"双工具"}
+{"id":"A26","category":"multi","input":"ORD001 到哪了，同时告诉我物流政策","expected":{"calls":[{"tool":"get_logistics","arguments":{"order_id":"ORD001"},"types":{"order_id":"str"}},{"tool":"search_after_sales_policy","arguments":{"query":"物流政策"},"types":{"query":"str"}}],"query_flexible":true,"order_sensitive":false},"note":"双工具"}
+{"id":"A27","category":"edge","input":"ord001 现在什么状态","expected":{"calls":[{"tool":"get_order","arguments":{"order_id":"ORD001"},"types":{"order_id":"str"}}]},"note":"小写订单号，考察规范化"}
+{"id":"A28","category":"edge","input":"订单 ORD001 能退吗，我要退款","expected":{"calls":[{"tool":"check_refund_eligibility","arguments":{"order_id":"ORD001"},"types":{"order_id":"str"}}]},"note":"情绪化表达，不应产生多余参数"}
+{"id":"A29","category":"edge","input":"帮我查下 ORD002 的物流，单号是 SF123456","expected":{"calls":[{"tool":"get_logistics","arguments":{"order_id":"ORD002"},"types":{"order_id":"str"}}]},"note":"同时给物流单号，不应把它当 order_id"}
+{"id":"A30","category":"edge","input":"查一下订单","expected":{"calls":[]},"note":"缺参，模型应追问而不是编造订单号；预期调用为空"}

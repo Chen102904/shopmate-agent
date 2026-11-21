@@ -1,0 +1,34 @@
+# 工具选择评测集 v1 — 30 条
+# expected.tools 是完整调用轨迹（有序，含重复）
+# order_sensitive=true 表示顺序必须一致；false 表示只要集合一致即可
+# 负样本 expected.tools 为空列表，用于检测「不该调工具却调了」
+{"id":"T01","category":"single_order","input":"帮我查一下 ORD001 的订单状态","expected":{"tools":["get_order"],"order_sensitive":false},"note":"单工具"}
+{"id":"T02","category":"single_order","input":"ORD001 花了多少钱","expected":{"tools":["get_order"],"order_sensitive":false},"note":"单工具"}
+{"id":"T03","category":"single_order","input":"订单号 ORD002 现在什么状态","expected":{"tools":["get_order"],"order_sensitive":false},"note":"单工具"}
+{"id":"T04","category":"single_order","input":"查一下 ORD003 的订单信息","expected":{"tools":["get_order"],"order_sensitive":false},"note":"单工具"}
+{"id":"T05","category":"single_order","input":"我那个订单什么时候下的单","expected":{"tools":["get_order"],"order_sensitive":false},"note":"无订单号，仍应调订单工具"}
+{"id":"T06","category":"single_logistics","input":"ORD002 的物流到哪里了","expected":{"tools":["get_logistics"],"order_sensitive":false},"note":"单工具"}
+{"id":"T07","category":"single_logistics","input":"快递怎么还没到","expected":{"tools":["get_logistics"],"order_sensitive":false},"note":"口语"}
+{"id":"T08","category":"single_logistics","input":"ORD003 的快递签收了吗","expected":{"tools":["get_logistics"],"order_sensitive":false},"note":"单工具"}
+{"id":"T09","category":"single_logistics","input":"帮我看看运输状态","expected":{"tools":["get_logistics"],"order_sensitive":false},"note":"同义表达"}
+{"id":"T10","category":"single_logistics","input":"我的包裹到哪了 ORD002","expected":{"tools":["get_logistics"],"order_sensitive":false},"note":"包裹=物流"}
+{"id":"T11","category":"single_refund","input":"ORD001 现在可以退款吗","expected":{"tools":["check_refund_eligibility"],"order_sensitive":false},"note":"单工具"}
+{"id":"T12","category":"single_refund","input":"帮我检查 ORD001 的退款资格","expected":{"tools":["check_refund_eligibility"],"order_sensitive":false},"note":"单工具"}
+{"id":"T13","category":"single_refund","input":"ORD002 能退款不","expected":{"tools":["check_refund_eligibility"],"order_sensitive":false},"note":"口语"}
+{"id":"T14","category":"single_refund","input":"这个单子能退钱吗，订单号 ORD003","expected":{"tools":["check_refund_eligibility"],"order_sensitive":false},"note":"口语+单号后置"}
+{"id":"T15","category":"single_policy","input":"商品签收超过7天还能退款吗","expected":{"tools":["search_after_sales_policy"],"order_sensitive":false},"note":"一般政策"}
+{"id":"T16","category":"single_policy","input":"退货政策是怎么规定的","expected":{"tools":["search_after_sales_policy"],"order_sensitive":false},"note":"政策咨询"}
+{"id":"T17","category":"single_policy","input":"换货需要什么条件","expected":{"tools":["search_after_sales_policy"],"order_sensitive":false},"note":"政策咨询"}
+{"id":"T18","category":"single_policy","input":"物流异常怎么处理","expected":{"tools":["search_after_sales_policy"],"order_sensitive":false},"note":"政策咨询"}
+{"id":"T19","category":"single_policy","input":"什么情况下需要找人工客服","expected":{"tools":["search_after_sales_policy"],"order_sensitive":false},"note":"政策咨询"}
+{"id":"T20","category":"single_policy","input":"七天无理由是什么意思","expected":{"tools":["search_after_sales_policy"],"order_sensitive":false},"note":"术语解释"}
+{"id":"T21","category":"multi_tool","input":"ORD001 现在可以退款吗？另外签收超过7天的退款政策是什么","expected":{"tools":["check_refund_eligibility","search_after_sales_policy"],"order_sensitive":false},"note":"双工具，顺序无关"}
+{"id":"T22","category":"multi_tool","input":"ORD002 到哪了，顺便问下物流异常的一般规定","expected":{"tools":["get_logistics","search_after_sales_policy"],"order_sensitive":false},"note":"双工具"}
+{"id":"T23","category":"multi_tool","input":"帮我查下 ORD001 的订单信息，再看看能不能退","expected":{"tools":["get_order","check_refund_eligibility"],"order_sensitive":true},"note":"双工具，先查订单再判退款有依赖"}
+{"id":"T24","category":"multi_tool","input":"ORD002 的物流状态和订单状态都告诉我","expected":{"tools":["get_order","get_logistics"],"order_sensitive":false},"note":"双工具"}
+{"id":"T25","category":"multi_tool","input":"ORD003 能退吗，退货政策也讲一下","expected":{"tools":["check_refund_eligibility","search_after_sales_policy"],"order_sensitive":false},"note":"双工具"}
+{"id":"T26","category":"negative","input":"你好","expected":{"tools":[],"order_sensitive":false},"note":"负样本：寒暄不该调工具"}
+{"id":"T27","category":"negative","input":"帮我写一首诗","expected":{"tools":[],"order_sensitive":false},"note":"负样本：越界不该调工具"}
+{"id":"T28","category":"negative","input":"你是谁，能做什么","expected":{"tools":[],"order_sensitive":false},"note":"负样本：功能咨询由提示词回答，不必调业务工具（若调 policy 工具算失败）"}
+{"id":"T29","category":"negative","input":"我的订单有问题","expected":{"tools":[],"order_sensitive":false},"note":"负样本：信息不足应先澄清"}
+{"id":"T30","category":"no_duplicate","input":"查一下 ORD001 的订单状态，就查这一个订单","expected":{"tools":["get_order"],"order_sensitive":false},"note":"显式限制，检测重复调用"}

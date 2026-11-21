@@ -1,0 +1,55 @@
+# 意图识别评测集 v1
+# 40 条 = 32 条单轮 + 8 条多轮（含 context）
+# 类别分布：order_query 5 / logistics_query 5 / refund_query 4 / return_query 3
+#           exchange_query 3 / policy_query 5 / unclear 3 / out_of_scope 2
+#           nonsense 1 / smalltalk 1 / 多轮 8
+# 设计说明：刻意包含口语化、错别字、模糊表达、功能咨询（易误判为 smalltalk）
+{"id": "I01", "category": "order_query", "input": "帮我查一下 ORD001 的订单状态", "expected": {"intent": "order_query"}, "note": "标准表达"}
+{"id": "I02", "category": "order_query", "input": "ORD001 什么时候下的单", "expected": {"intent": "order_query"}, "note": "问下单时间"}
+{"id": "I03", "category": "order_query", "input": "我那个订单花了多少钱", "expected": {"intent": "order_query"}, "note": "口语，无订单号"}
+{"id": "I04", "category": "order_query", "input": "订单号是 ORD002，现在啥情况了", "expected": {"intent": "order_query"}, "note": "口语+省略"}
+{"id": "I05", "category": "order_query", "input": "ORD003 这一单多少钱", "expected": {"intent": "order_query"}, "note": "金额查询"}
+{"id": "I06", "category": "logistics_query", "input": "ORD002 的物流到哪里了", "expected": {"intent": "logistics_query"}, "note": "标准表达"}
+{"id": "I07", "category": "logistics_query", "input": "快递怎么还没到啊", "expected": {"intent": "logistics_query"}, "note": "口语，无单号"}
+{"id": "I08", "category": "logistics_query", "input": "顺丰单号 SF123456 现在在哪", "expected": {"intent": "logistics_query"}, "note": "用物流单号问"}
+{"id": "I09", "category": "logistics_query", "input": "我买的东西运输到哪了", "expected": {"intent": "logistics_query"}, "note": "同义表达（运输）"}
+{"id": "I10", "category": "logistics_query", "input": "ORD003 的快递签收了没", "expected": {"intent": "logistics_query"}, "note": "问签收状态"}
+{"id": "I11", "category": "refund_query", "input": "ORD001 现在可以退款吗", "expected": {"intent": "refund_query"}, "note": "标准表达"}
+{"id": "I12", "category": "refund_query", "input": "我这个单能不能退钱", "expected": {"intent": "refund_query"}, "note": "口语（退钱）"}
+{"id": "I13", "category": "refund_query", "input": "帮我看看 ORD001 的退款资格", "expected": {"intent": "refund_query"}, "note": "明确说资格"}
+{"id": "I14", "category": "refund_query", "input": "退款申请提交了，现在进度咋样", "expected": {"intent": "refund_query"}, "note": "问退款进度"}
+{"id": "I15", "category": "return_query", "input": "我想退货，应该怎么申请", "expected": {"intent": "return_query"}, "note": "标准表达"}
+{"id": "I16", "category": "return_query", "input": "收到的衣服不合适，想退掉", "expected": {"intent": "return_query"}, "note": "口语，隐含退货"}
+{"id": "I17", "category": "return_query", "input": "退货需要准备什么材料", "expected": {"intent": "return_query"}, "note": "问流程材料"}
+{"id": "I18", "category": "exchange_query", "input": "商品坏了，我想换一个新的", "expected": {"intent": "exchange_query"}, "note": "标准表达"}
+{"id": "I19", "category": "exchange_query", "input": "能换个尺码吗", "expected": {"intent": "exchange_query"}, "note": "口语，隐含换货"}
+{"id": "I20", "category": "exchange_query", "input": "换货流程是什么", "expected": {"intent": "exchange_query"}, "note": "问流程"}
+{"id": "I21", "category": "policy_query", "input": "商品签收超过7天还能退款吗", "expected": {"intent": "policy_query"}, "note": "一般政策，非具体订单"}
+{"id": "I22", "category": "policy_query", "input": "七天无理由是啥意思", "expected": {"intent": "policy_query"}, "note": "术语解释"}
+{"id": "I23", "category": "policy_query", "input": "你是谁？你能做什么", "expected": {"intent": "policy_query"}, "note": "功能咨询，易误判 smalltalk"}
+{"id": "I24", "category": "policy_query", "input": "你们支持哪些业务", "expected": {"intent": "policy_query"}, "note": "功能咨询"}
+{"id": "I25", "category": "policy_query", "input": "退款政策是怎么规定的", "expected": {"intent": "policy_query"}, "note": "政策咨询"}
+{"id": "I26", "category": "unclear", "input": "我的订单有问题", "expected": {"intent": "unclear"}, "note": "过于模糊"}
+{"id": "I27", "category": "unclear", "input": "帮我看下", "expected": {"intent": "unclear"}, "note": "无信息量"}
+{"id": "I28", "category": "unclear", "input": "这个怎么弄啊", "expected": {"intent": "unclear"}, "note": "指代不明"}
+{"id": "I29", "category": "out_of_scope", "input": "帮我写一首关于春天的诗", "expected": {"intent": "out_of_scope"}, "note": "明显无关"}
+{"id": "I30", "category": "out_of_scope", "input": "今天北京天气怎么样", "expected": {"intent": "out_of_scope"}, "note": "无关"}
+{"id": "I31", "category": "nonsense", "input": "asdfghjkl", "expected": {"intent": "nonsense"}, "note": "乱码"}
+{"id": "I32", "category": "smalltalk", "input": "你好", "expected": {"intent": "smalltalk"}, "note": "寒暄"}
+{"id": "I33", "category": "logistics_query", "input": "物流", "expected": {"intent": "logistics_query"}, "context": {"original_user_message": "我的订单有问题", "clarification_question": "请问你的订单具体遇到了什么情况？例如物流异常、商品损坏，还是其他问题？"}, "multi_turn": true, "note": "多轮：单词回答，靠上下文"}
+{"id": "I34", "category": "refund_query", "input": "退款", "expected": {"intent": "refund_query"}, "context": {"original_user_message": "我的订单有问题", "clarification_question": "请问你的订单具体遇到了什么情况？例如物流异常、商品损坏，还是其他问题？"}, "multi_turn": true, "note": "多轮：单词回答"}
+{"id": "I35", "category": "return_query", "input": "商品有问题想退回去", "expected": {"intent": "return_query"}, "context": {"original_user_message": "我的订单有问题", "clarification_question": "请问你的订单具体遇到了什么情况？"}, "multi_turn": true, "note": "多轮：补充退货"}
+{"id": "I36", "category": "exchange_query", "input": "东西坏了能换吗", "expected": {"intent": "exchange_query"}, "context": {"original_user_message": "我的订单有问题", "clarification_question": "请问你的订单具体遇到了什么情况？"}, "multi_turn": true, "note": "多轮：补充换货"}
+{"id": "I37", "category": "logistics_query", "input": "物流一直没更新", "expected": {"intent": "logistics_query"}, "context": {"original_user_message": "我的订单有问题", "clarification_question": "请问你的订单具体遇到了什么情况？"}, "multi_turn": true, "note": "多轮：补充物流异常"}
+{"id": "I38", "category": "unclear", "input": "商品坏了", "expected": {"intent": "unclear"}, "context": {"original_user_message": "我的订单有问题", "clarification_question": "请问你的订单具体遇到了什么情况？"}, "multi_turn": true, "note": "多轮：退货还是换货不明确，按提示词应判 unclear"}
+{"id": "I39", "category": "order_query", "input": "那我的订单什么时候发的", "expected": {"intent": "order_query"}, "context": {"original_user_message": "帮我查下 ORD001", "clarification_question": "你想查询什么信息？"}, "multi_turn": true, "note": "多轮：指代上文订单"}
+{"id": "I40", "category": "out_of_scope", "input": "算了，你帮我订张机票吧", "expected": {"intent": "out_of_scope"}, "context": {"original_user_message": "我的订单有问题", "clarification_question": "请问你的订单具体遇到了什么情况？"}, "multi_turn": true, "note": "多轮：话题跳转到无关领域"}
+{"id": "M01", "category": "refund_query", "input": "那这个能退吗", "history": [{"role": "user", "content": "帮我查一下 ORD001 的订单"}, {"role": "assistant", "content": "ORD001：已付款，金额 199.90 元，下单时间 2 天前。"}], "expected": {"intent": "refund_query"}, "multi_turn": true, "note": "指代上文订单，属于针对具体订单的退款问题，不是一般政策"}
+{"id": "M02", "category": "logistics_query", "input": "它大概什么时候到", "history": [{"role": "user", "content": "ORD002 到哪了"}, {"role": "assistant", "content": "ORD002 由顺丰承运，单号 SF123456，目前运输中。"}], "expected": {"intent": "logistics_query"}, "multi_turn": true, "note": "「它」指代上一轮物流"}
+{"id": "M03", "category": "return_query", "input": "那我要怎么申请退货", "history": [{"role": "user", "content": "帮我看看 ORD001"}, {"role": "assistant", "content": "ORD001 已付款，尚未发货。"}], "expected": {"intent": "return_query"}, "multi_turn": true, "note": "承接上文订单，问退货申请"}
+{"id": "M04", "category": "policy_query", "input": "具体要怎么操作", "history": [{"role": "user", "content": "ORD003 还能退吗"}, {"role": "assistant", "content": "ORD003 已签收第 7 天，仍在退款期限内。"}], "expected": {"intent": "policy_query"}, "multi_turn": true, "note": "追问流程本身，属于政策咨询"}
+{"id": "M05", "category": "exchange_query", "input": "东西坏了想换一个", "history": [{"role": "user", "content": "你好"}, {"role": "assistant", "content": "你好！我是 ShopMate 智能电商售后助手。"}], "expected": {"intent": "exchange_query"}, "multi_turn": true, "note": "无指代对象，但自身表达明确"}
+{"id": "M06", "category": "out_of_scope", "input": "算了，旅游攻略有吗", "history": [{"role": "user", "content": "帮我查 ORD001"}, {"role": "assistant", "content": "ORD001 已付款，金额 199.90 元。"}], "expected": {"intent": "out_of_scope"}, "multi_turn": true, "note": "话题完全跳转，不应被上文订单带偏"}
+{"id": "I47", "category": "refund_query", "input": "算了，我不想退了，把这个申请撤销", "expected": {"intent": "refund_query"}, "note": "撤销已提交的售后申请属于支持能力，不能判 out_of_scope"}
+{"id": "I48", "category": "out_of_scope", "input": "帮我把这个订单取消掉", "expected": {"intent": "out_of_scope"}, "note": "取消订单本身系统没能力，与「撤销申请」必须区分"}
+{"id": "I49", "category": "return_query", "input": "撤回刚才那个退货申请", "expected": {"intent": "return_query"}, "note": "极短撤销消息要按上文申请类型分类", "history": [{"role": "assistant", "content": "你的退货申请已提交，工单号 6c433f5f，当前待人工审核"}], "multi_turn": true}

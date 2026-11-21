@@ -1,0 +1,35 @@
+# RAG 回答质量评测集 v1 — 30 条
+# must_have      每组任选其一命中即可（同义容错）
+# must_have_all  每一项都必须出现（关键条件，不可省）
+# must_not_have  出现即失败（编造检测）
+# expect_rejection=true 期望拒答（知识库无此信息）
+{"id":"Q01","category":"refund","input":"商品签收超过7天还能退款吗","expected":{"must_have":[["超过7天","七天","7 天","7天"]],"must_have_all":[["人工","客服","审核"]],"must_not_have":["一定可以退","保证退款","无需审核","直接退"],"expect_rejection":false},"note":"关键：超期需转人工，不能承诺可退"}
+{"id":"Q02","category":"refund","input":"还没付款可以取消订单吗","expected":{"must_have":[["可以取消","能取消","支持取消"]],"must_have_all":[],"must_not_have":["收取费用","违约金"],"expect_rejection":false},"note":"未付款可取消"}
+{"id":"Q03","category":"refund","input":"已经付款但还没发货，能退款吗","expected":{"must_have":[["可以申请退款","能申请退款","支持退款"]],"must_have_all":[],"must_not_have":["必须等发货","无法退款"],"expect_rejection":false},"note":"已付款未发货可退"}
+{"id":"Q04","category":"refund","input":"商品正在运输中，可以退款吗","expected":{"must_have":[["暂不支持","不支持直接","不能直接"]],"must_have_all":[["人工","客服"]],"must_not_have":["可以直接退","马上退"],"expect_rejection":false},"note":"运输中需先转人工"}
+{"id":"Q05","category":"refund","input":"签收后多少天内可以申请退款","expected":{"must_have":[["7天","七天","7 天"]],"must_have_all":[],"must_not_have":["15天","30天","一个月"],"expect_rejection":false},"note":"数字必须正确"}
+{"id":"Q06","category":"refund","input":"退款资格以什么为准","expected":{"must_have":[["订单状态","签收时间","审核结果"]],"must_have_all":[],"must_not_have":["以客服判断为准","以模型判断"],"expect_rejection":false},"note":"三项依据"}
+{"id":"Q07","category":"refund","input":"超过7天想退款怎么办","expected":{"must_have":[["人工","客服"]],"must_have_all":[],"must_not_have":["自行申请即可","无需审核"],"expect_rejection":false},"note":"必须引导人工"}
+{"id":"Q08","category":"refund","input":"刚刚下单不想要了，还没付款","expected":{"must_have":[["取消订单","取消"]],"must_have_all":[],"must_not_have":[],"expect_rejection":false},"note":"口语"}
+{"id":"Q09","category":"return","input":"商品有质量问题怎么申请退货","expected":{"must_have":[["申请退货","退货"]],"must_have_all":[["质量问题","质量"]],"must_not_have":["无法退货","不支持退货"],"expect_rejection":false},"note":"质量问题可退"}
+{"id":"Q10","category":"return","input":"非质量问题可以退货吗","expected":{"must_have":[["审核","根据商品类别","实际情况"]],"must_have_all":[],"must_not_have":["一定可以退","无条件退货"],"expect_rejection":false},"note":"非质量问题需审核"}
+{"id":"Q11","category":"return","input":"已经用过的商品能退货吗","expected":{"must_have":[["可能无法退货","无法退货","影响二次销售"]],"must_have_all":[],"must_not_have":["一定可以退"],"expect_rejection":false},"note":"已使用可能不能退"}
+{"id":"Q12","category":"return","input":"退货要填原因吗","expected":{"must_have":[["填写退货原因","退货原因"]],"must_have_all":[],"must_not_have":[],"expect_rejection":false},"note":"需填原因"}
+{"id":"Q13","category":"return","input":"衣服收到后不合适想退，可以吗","expected":{"must_have":[["审核","商品类别","实际情况"]],"must_have_all":[],"must_not_have":["一定可以退"],"expect_rejection":false},"note":"非质量问题需审核"}
+{"id":"Q14","category":"exchange","input":"商品坏了想换一个新的","expected":{"must_have":[["换货","申请换货"]],"must_have_all":[["质量问题","质量"]],"must_not_have":["无法换货"],"expect_rejection":false},"note":"质量问题可换"}
+{"id":"Q15","category":"exchange","input":"换货需要提供什么","expected":{"must_have":[["订单编号","换货原因"]],"must_have_all":[],"must_not_have":["不需要提供"],"expect_rejection":false},"note":"两项材料"}
+{"id":"Q16","category":"exchange","input":"换货由谁审核","expected":{"must_have":[["售后人员","售后"]],"must_have_all":[],"must_not_have":["系统自动审核","模型判断"],"expect_rejection":false},"note":"售后人员审核"}
+{"id":"Q17","category":"exchange","input":"尺码不合适能换吗","expected":{"must_have":[["换货","审核"]],"must_have_all":[],"must_not_have":["一定可以换"],"expect_rejection":false},"note":"非质量问题，需审核"}
+{"id":"Q18","category":"logistics","input":"物流长时间没更新怎么办","expected":{"must_have":[["联系人工客服","人工客服"]],"must_have_all":[],"must_not_have":["会自动恢复","无需处理"],"expect_rejection":false},"note":"应引导人工"}
+{"id":"Q19","category":"logistics","input":"怎么查物流状态","expected":{"must_have":[["物流单号","查询"]],"must_have_all":[],"must_not_have":[],"expect_rejection":false},"note":"用单号查"}
+{"id":"Q20","category":"logistics","input":"物流显示异常怎么办","expected":{"must_have":[["核实","物流人员","售后人员"]],"must_have_all":[],"must_not_have":["会自己恢复","无需处理"],"expect_rejection":false},"note":"需核实"}
+{"id":"Q21","category":"logistics","input":"快递一直不动好几天了","expected":{"must_have":[["人工客服","联系人工"]],"must_have_all":[],"must_not_have":[],"expect_rejection":false},"note":"口语"}
+{"id":"Q22","category":"human","input":"什么情况下需要找人工客服","expected":{"must_have":[["超过7天","争议","异常","异议"]],"must_have_all":[],"must_not_have":[],"expect_rejection":false},"note":"四种情形任一即可"}
+{"id":"Q23","category":"human","input":"退款资格有争议怎么办","expected":{"must_have":[["人工客服","人工"]],"must_have_all":[],"must_not_have":["以模型为准"],"expect_rejection":false},"note":"争议转人工"}
+{"id":"Q24","category":"human","input":"对售后处理结果不满意怎么办","expected":{"must_have":[["人工客服","人工"]],"must_have_all":[],"must_not_have":[],"expect_rejection":false},"note":"异议转人工"}
+{"id":"Q25","category":"human","input":"知识库答不上来的问题怎么办","expected":{"must_have":[["人工客服","人工"]],"must_have_all":[],"must_not_have":["我会尽力猜","根据经验"],"expect_rejection":false},"note":"无答案转人工"}
+{"id":"Q26","category":"reject","input":"ShopMate公司成立于哪一年","expected":{"must_have":[],"must_have_all":[],"must_not_have":["2018","2019","2020","2021","2022","2023","2024","2025"],"expect_rejection":true},"note":"必须拒答，不得编年份"}
+{"id":"Q27","category":"reject","input":"苹果手机最新款多少钱","expected":{"must_have":[],"must_have_all":[],"must_not_have":["元","价格是"],"expect_rejection":true},"note":"必须拒答"}
+{"id":"Q28","category":"reject","input":"美国总统是谁","expected":{"must_have":[],"must_have_all":[],"must_not_have":[],"expect_rejection":true},"note":"必须拒答"}
+{"id":"Q29","category":"reject","input":"今天北京天气怎么样","expected":{"must_have":[],"must_have_all":[],"must_not_have":["晴","多云","度"],"expect_rejection":true},"note":"必须拒答"}
+{"id":"Q30","category":"reject","input":"帮我写一段快速排序代码","expected":{"must_have":[],"must_have_all":[],"must_not_have":["def ","return"],"expect_rejection":true},"note":"必须拒答，不得输出代码"}
