@@ -78,7 +78,27 @@ def split_markdown_sections(text: str) -> list[str]:
 
             # 第一章节保留文档标题等前置内容
             if not found_section:
-                current_lines = prefix_lines + [line]
+                # 但要去掉「引用块」——那通常是给开发者看的元信息，
+                # 比如文件头的免责声明：
+                #
+                #     > 本文件是 ShopMate 项目自建的模拟业务规则，
+                #     > 不代表任何真实电商平台政策，也不构成法律意见。
+                #
+                # 它和第一节被拼成同一个文本块后，会把这一节的语义稀释掉。
+                # 实测：「退款政策」这一节因为混进了声明，
+                # 问「退款资格以什么为准」（答案就在这一节的第 5 条）
+                # 相似度只有 0.5620，排到第 7 位，根本没进候选集，
+                # 回答自然讲不出「订单状态 / 签收时间 / 审核结果」这三项依据。
+                #
+                # 只去掉**第一个二级标题之前**的引用块：
+                # 正文里的引用块可能是有用的注意事项，不能一起删。
+                prefix = [
+                    line
+                    for line in prefix_lines
+                    if not line.lstrip().startswith(">")
+                ]
+
+                current_lines = prefix + [line]
                 found_section = True
             else:
                 current_lines = [line]

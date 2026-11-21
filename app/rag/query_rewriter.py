@@ -1,5 +1,12 @@
 
-from app.core.llm_client import DEEPSEEK_MODEL, get_llm_client
+import logging
+
+from app.core.llm_client import (
+    DEEPSEEK_MODEL,
+    create_chat_completion_with_fallback,
+)
+
+logger = logging.getLogger(__name__)
 
 
 REWRITE_PROMPT = """
@@ -42,9 +49,10 @@ def rewrite_query(query: str) -> str:
     original_query = query.strip()
 
     try:
-        client = get_llm_client()
-
-        response = client.chat.completions.create(
+        # 走统一的三模型 fallback：
+        # 改写只是辅助步骤，主模型不可用时用备用模型即可，
+        # 不应该因为一次改写失败就退化成原始查询。
+        response = create_chat_completion_with_fallback(
             model=DEEPSEEK_MODEL,
             messages=[
                 {
@@ -74,5 +82,9 @@ def rewrite_query(query: str) -> str:
         return rewritten_query
 
     except Exception:
-        # 查询改写失败时，降级使用原始查询
+        # 查询改写失败时，降级使用原始查询。
+        # 降级本身对用户无感，但必须留日志：
+        # 改写关掉后口语化提问的命中率会下降，
+        # 不记日志就查不出「为什么最近检索变差」。
+        logger.warning("查询改写失败，改用原始查询", exc_info=True)
         return original_query
