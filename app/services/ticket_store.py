@@ -706,7 +706,7 @@ def count_tickets(user_id: str | None = None) -> int:
     return int(row["c"])
 
 
-def update_ticket_status(
+def _update_ticket_status_once(
     ticket_id: str,
     new_status: TicketStatus,
     user_id: str | None = None,
@@ -805,3 +805,61 @@ def update_ticket_status(
         ).fetchone()
 
     return (_row_to_ticket(updated) if updated else None), True
+
+
+def update_ticket_status(
+    ticket_id: str,
+    new_status: TicketStatus,
+    user_id: str | None = None,
+    review_note: str | None = None,
+) -> tuple[AfterSalesTicket | None, bool]:
+    """变更工单状态（带并发重试）。
+
+    并发撤销 / 并发审核时会撞上 SQLite 的
+    "attempt to write a readonly database"——
+    WAL 模式下多线程同时抢写锁会出现这个错误，
+    `busy_timeout` 对它无效，只能整体退避重试。
+
+    为什么重试是安全的：
+        被重试的是一次「BEGIN IMMEDIATE → 校验状态 → UPDATE」的完整事务，
+        要么提交要么回滚，不存在做到一半的状态。
+        重试最多让某个请求多等几十毫秒，不会产生第二次状态变更
+        ——状态机允许的来源集合在每次重试时都会重新校验。
+
+    这条不是理论问题：8 个线程同时撤销同一张单，
+    不加重试时有约三分之一的概率直接抛异常，
+    接口会返回 500，用户看到的是「系统错误」而不是「已撤销」。
+    """
+
+    last_error: sqlite3.OperationalError | None = None
+
+    for attempt in range(RESERVE_MAX_ATTEMPTS):
+
+        try:
+            return _update_ticket_status_once(
+                ticket_id=ticket_id,
+                new_status=new_status,
+                user_id=user_id,
+                review_note=review_note,
+            )
+
+        except sqlite3.OperationalError as exc:
+
+            message = str(exc).lower()
+
+            retryable = any(
+                keyword in message
+                for keyword in ("readonly", "locked", "busy", "disk i/o")
+            )
+
+            if not retryable:
+                raise
+
+            last_error = exc
+
+            if attempt == RESERVE_MAX_ATTEMPTS - 1:
+                raise
+
+            time.sleep(min(0.05 * (attempt + 1), 0.3))
+
+    raise last_error  # pragma: no cover

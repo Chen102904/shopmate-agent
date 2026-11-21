@@ -179,16 +179,65 @@ def _ensure_conversation(
 
     owner_id = user_id or get_current_user_id()
 
-    connection.execute(
-        """
-        INSERT OR IGNORE INTO conversations (
-            conversation_id,
-            user_id
-        )
-        VALUES (?, ?)
-        """,
-        (conversation_id, owner_id),
-    )
+    # 已经存在就直接返回，不做写操作。
+    #
+    # 这一条比下面的重试更关键：会话在读路径上被反复「确保」，
+    # 8 个线程并发时如果每个都去 INSERT-OR-IGNORE，
+    # 即使全部被 ignore，也要抢写锁 —— 重试只能说少失败几次，
+    # 不如根本不写。实测 8 线程并发时，加了这一步才真正稳定。
+    if (
+        connection.execute(
+            "SELECT 1 FROM conversations WHERE conversation_id = ?",
+            (conversation_id,),
+        ).fetchone()
+        is not None
+    ):
+        return
+
+    # 这条语句在「读」的路径上也会被调用（比如取最后一条用户消息之前），
+    # 而它本身是一次写操作。多线程/多进程同时进来时，
+    # SQLite 在 WAL 切换期间会返回 readonly，busy_timeout 对它无效——
+    # 表现为：两个用户同时说话，其中一个收到 500。
+    #
+    # INSERT OR IGNORE 是幂等的，重试不会产生第二行，所以整体重试是安全的。
+    # 已经在会话里的情况下重试也不会有副作用（ignore 掉）。
+    last_error: sqlite3.OperationalError | None = None
+
+    for attempt in range(8):
+
+        try:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO conversations (
+                    conversation_id,
+                    user_id
+                )
+                VALUES (?, ?)
+                """,
+                (conversation_id, owner_id),
+            )
+            return
+
+        except sqlite3.OperationalError as exc:
+
+            message = str(exc).lower()
+
+            retryable = any(
+                keyword in message
+                for keyword in ("readonly", "locked", "busy", "disk i/o")
+            )
+
+            if not retryable:
+                raise
+
+            last_error = exc
+
+            if attempt == 7:
+                raise
+
+            time.sleep(min(0.05 * (attempt + 1), 0.3))
+
+    raise last_error  # pragma: no cover
 
 
 _initialize_database()

@@ -41,6 +41,7 @@ from app.agent.ticket_draft import (
     DraftBusy,
     DraftExpired,
     DraftNotFound,
+    cancel_pending_drafts,
     create_draft,
     complete_draft,
     find_latest_pending_draft,
@@ -820,6 +821,92 @@ def _recently_cancelled_ticket(user_id: str):
     return None
 
 
+def _cancel_unsubmitted_draft(
+    user_id: str,
+    conversation_id: str,
+    order_id: str | None = None,
+) -> dict | None:
+    """没有工单可撤时，看看是不是「申请还没提交」。
+
+    为什么必须有这一步：
+
+        用户在草稿阶段说「撤销」，撤销工具只找工单，找不到就回
+        「没有可以撤销的售后申请」，草稿却还留在库里。
+        下一轮模型完全可能把这张草稿确认掉 ——
+        用户以为自己撤了，工单却建出来了。
+
+        这类问题单线程测试测不出来，必须在真实对话里跑才会撞上。
+
+    返回：
+        None       → 没有未提交的草稿，调用方走原来的「没有可撤销申请」
+        其它 dict  → 要么要求确认，要么已经作废，直接返回给模型
+    """
+
+    draft = find_latest_pending_draft(
+        conversation_id=conversation_id,
+        user_id=user_id,
+    )
+
+    if draft is None:
+        return None
+
+    if order_id and draft.order_id != order_id.strip().upper():
+        return None
+
+    last_record = _get_last_user_message(conversation_id)
+
+    confirmed, confirm_reason = is_explicit_confirmation(
+        last_record["content"],
+        ignore_deny=("撤销",),
+        extra_confirm=("撤销",),
+    )
+
+    if not confirmed:
+
+        record_execution_event(
+            event="draft_cancel",
+            status="blocked",
+            details={"reason": confirm_reason},
+        )
+
+        label = REQUEST_TYPE_LABELS.get(draft.request_type, "售后")
+
+        return {
+            "error": "用户还没有明确确认要撤销",
+            "status": "confirmation_required",
+            "order_id": draft.order_id,
+            "hint": (
+                f"告诉用户：「你要撤销的是订单 {draft.order_id} 的{label}申请"
+                f"（理由：{draft.reason}），这张申请还没提交，撤销后不会进入审核。」"
+                "等用户明确回复「确认」「撤销吧」之后再调用一次。"
+            ),
+        }
+
+    removed = cancel_pending_drafts(
+        conversation_id=conversation_id,
+        user_id=user_id,
+        order_id=draft.order_id,
+    )
+
+    record_execution_event(
+        event="draft_cancel",
+        status="cancelled",
+        details={"count": removed},
+    )
+
+    return {
+        "status": "draft_cancelled",
+        "order_id": draft.order_id,
+        "cancelled_drafts": removed,
+        "hint": (
+            "这张申请还停在「待确认」阶段，没有提交过，现在已经直接取消，"
+            "不会进入审核，也不需要再做其他操作。"
+            "如实告诉用户「已取消」，不要说成「已撤销工单」——"
+            "根本没有生成过工单。"
+        ),
+    }
+
+
 def cancel_after_sales_ticket(
     user_id: str,
     conversation_id: str,
@@ -890,6 +977,15 @@ def cancel_after_sales_ticket(
         ]
 
         if not candidates:
+            draft_result = _cancel_unsubmitted_draft(
+                user_id=user_id,
+                conversation_id=conversation_id,
+                order_id=normalized,
+            )
+
+            if draft_result is not None:
+                return draft_result
+
             return {
                 "error": "这个订单没有可以撤销的售后申请",
                 "status": "no_cancellable_ticket",
@@ -926,6 +1022,14 @@ def cancel_after_sales_ticket(
                         "直接把这个结果告诉用户，不要说成又撤销了一次。"
                     ),
                 }
+
+            draft_result = _cancel_unsubmitted_draft(
+                user_id=user_id,
+                conversation_id=conversation_id,
+            )
+
+            if draft_result is not None:
+                return draft_result
 
             return {
                 "error": "没有可以撤销的售后申请",

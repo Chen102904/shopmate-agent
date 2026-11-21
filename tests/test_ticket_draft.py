@@ -215,14 +215,18 @@ def test_stale_consuming_draft_can_be_reclaimed():
     _make_draft()
     reserve_draft("drf_test001", USER, CONVERSATION)
 
-    # 把 created_at 往前推，模拟长时间卡住
+    # 把「消费开始时间」往前推，模拟长时间卡住。
+    #
+    # 注意不能只改 created_at：僵死判定的基准是 consuming_at。
+    # 早先用 created_at 判断时，用户看草稿看了几分钟再点确认，
+    # 正在处理的草稿会被当成死掉的抢走（已在 test_write_op_races 里守住）。
     long_ago = (
         datetime.now() - timedelta(seconds=120)
     ).isoformat()
 
     with get_connection() as connection:
         connection.execute(
-            "UPDATE ticket_drafts SET created_at = ? WHERE draft_id = ?",
+            "UPDATE ticket_drafts SET consuming_at = ? WHERE draft_id = ?",
             (long_ago, "drf_test001"),
         )
 

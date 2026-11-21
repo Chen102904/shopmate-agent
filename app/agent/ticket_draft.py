@@ -74,6 +74,12 @@ STATUS_OPEN = "open"
 STATUS_CONSUMING = "consuming"
 STATUS_CONSUMED = "consumed"
 
+# 用户在提交前撤销：草稿作废，不再可确认。
+# 为什么不直接删掉草稿：
+#   删了就没法回答「我那张申请哪去了」。
+#   留一条 cancelled 记录，排查时能看到「生成过、被撤销了」。
+STATUS_CANCELLED = "cancelled"
+
 
 class DraftError(Exception):
     """草稿相关错误的基类。"""
@@ -109,6 +115,16 @@ class TicketDraft:
     expires_at: datetime
     status: str
     ticket_id: str | None = None
+
+    # 抢占（open → consuming）发生的时间。
+    #
+    # 为什么不能拿 created_at 判断「是不是僵死」：
+    #   用户看草稿花 5 分钟是常态，草稿的创建时间很早，
+    #   但消费其实刚开始。按 created_at 算就会把
+    #   「正在被消费」误判成「上一个执行者已死」，
+    #   并发确认时把草稿抢走。
+    #   幂等键能防住重复建单，但防不住「两个请求都以为自己在建单」。
+    consuming_at: datetime | None = None
 
     # 草稿生成时，会话里最后一条用户消息的自增序号。
     #
@@ -152,7 +168,8 @@ def _ensure_schema() -> None:
                         expires_at TEXT NOT NULL,
                         status TEXT NOT NULL DEFAULT 'open',
                         ticket_id TEXT,
-                        created_after_message_id INTEGER NOT NULL DEFAULT 0
+                        created_after_message_id INTEGER NOT NULL DEFAULT 0,
+                        consuming_at TEXT
                     )
                     """
                 )
@@ -173,6 +190,16 @@ def _ensure_schema() -> None:
                         ALTER TABLE ticket_drafts
                         ADD COLUMN created_after_message_id
                         INTEGER NOT NULL DEFAULT 0
+                        """
+                    )
+
+                # 同理：consuming_at 是后加的列。
+                # 老草稿留空，判定僵死时退回 created_at（见 reserve_draft）。
+                if "consuming_at" not in columns:
+                    connection.execute(
+                        """
+                        ALTER TABLE ticket_drafts
+                        ADD COLUMN consuming_at TEXT
                         """
                     )
 
@@ -225,6 +252,11 @@ def _row_to_draft(row: sqlite3.Row) -> TicketDraft:
             int(row["created_after_message_id"])
             if "created_after_message_id" in keys
             else 0
+        ),
+        consuming_at=(
+            datetime.fromisoformat(row["consuming_at"])
+            if "consuming_at" in keys and row["consuming_at"]
+            else None
         ),
     )
 
@@ -408,12 +440,26 @@ def reserve_draft(
                         "草稿已过期，请重新生成后再确认"
                     )
 
+                # 已被用户在提交前撤销：不能再被抢占。
+                #
+                # 少了这一条，撤销就只是「看起来生效」：
+                # 用户说撤销 → 草稿标成 cancelled → 模型下一轮拿着
+                # 旧的 draft_id 再确认一次 → 照样建单。
+                if draft.status == STATUS_CANCELLED:
+                    raise DraftNotFound(
+                        "这张申请已经取消，如需重新申请请先生成新的草稿"
+                    )
+
                 if draft.status == STATUS_CONSUMING:
 
-                    # 判断是不是上一个执行者崩溃留下的僵死状态
-                    elapsed = (
-                        datetime.now() - draft.created_at
-                    ).total_seconds()
+                    # 判断是不是上一个执行者崩溃留下的僵死状态。
+                    #
+                    # 基准必须是「开始消费的时间」，不是「草稿创建时间」：
+                    # 用户看完草稿再确认花上几分钟很正常，
+                    # 拿创建时间算会把正在处理的草稿当成死掉的抢走。
+                    # 老数据没有 consuming_at，退回 created_at。
+                    since = draft.consuming_at or draft.created_at
+                    elapsed = (datetime.now() - since).total_seconds()
 
                     if elapsed < CONSUMING_STALE_SECONDS:
                         raise DraftBusy(
@@ -423,16 +469,24 @@ def reserve_draft(
                     # 僵死：允许重新抢占，往下走
 
                 # 抢占成功
+                started_at = datetime.now()
+
                 connection.execute(
                     """
                     UPDATE ticket_drafts
-                    SET status = ?
+                    SET status = ?,
+                        consuming_at = ?
                     WHERE draft_id = ?
                     """,
-                    (STATUS_CONSUMING, draft_id),
+                    (
+                        STATUS_CONSUMING,
+                        started_at.isoformat(timespec="seconds"),
+                        draft_id,
+                    ),
                 )
 
                 draft.status = STATUS_CONSUMING
+                draft.consuming_at = started_at
 
                 return draft
 
@@ -485,7 +539,8 @@ def release_draft(draft_id: str) -> None:
         connection.execute(
             """
             UPDATE ticket_drafts
-            SET status = ?
+            SET status = ?,
+                consuming_at = NULL
             WHERE draft_id = ?
               AND ticket_id IS NULL
             """,
@@ -657,6 +712,51 @@ def find_reusable_draft(
             return draft
 
     return None
+
+
+def cancel_pending_drafts(
+    conversation_id: str,
+    user_id: str,
+    order_id: str | None = None,
+) -> int:
+    """作废本会话里还没提交的草稿，返回作废条数。
+
+    为什么需要它：
+
+        用户说「撤销」，但那张申请其实还停在草稿阶段（没提交）。
+        撤销工具只找工单，找不到就回「没有可撤销的申请」——
+        草稿还留在库里，模型下一轮完全可能把它确认掉。
+        结果是：用户以为自己撤销了，工单却建出来了。
+
+        这类问题在单线程测试里看不出来，只有把「撤销」和「确认」
+        放在真实对话里跑才会撞上。
+
+    只动 open 状态的：
+        consuming 说明已经有请求在提交，此时作废反而制造歧义
+        （工单可能已经建出来了），交给幂等键和随后的撤销处理。
+    """
+
+    sql = """
+        UPDATE ticket_drafts
+        SET status = ?
+        WHERE conversation_id = ?
+          AND user_id = ?
+          AND status = ?
+    """
+    params: list[object] = [
+        STATUS_CANCELLED,
+        conversation_id,
+        user_id,
+        STATUS_OPEN,
+    ]
+
+    if order_id:
+        sql += " AND order_id = ?"
+        params.append(order_id.strip().upper())
+
+    with get_connection() as connection:
+        cursor = connection.execute(sql, params)
+        return int(cursor.rowcount or 0)
 
 
 def cleanup_expired_drafts(now: datetime | None = None) -> int:
