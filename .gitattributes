@@ -1,0 +1,12 @@
+# 批处理脚本按字节原样保存。
+#
+# 两个原因，缺一个都会让 start_demo.bat 在别人机器上直接报错：
+#   1. 换行必须是 CRLF —— cmd 解析批处理时按回车切行，
+#      LF 会让它把 @echo off 读成 ho off，报「'ho' 不是内部或外部命令」
+#   2. 文件是 GBK 编码（跟中文 Windows 默认代码页一致），
+#      不能被当成文本做任何转码
+#
+# 用 -text 而不是 eol=crlf：-text 表示「不要碰这个文件」，
+# 提交和检出都按原始字节走，不受 core.autocrlf 影响。
+*.bat -text
+*.cmd -text

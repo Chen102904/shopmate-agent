@@ -2,9 +2,11 @@ import logging
 import os
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.core.logging_config import configure_logging
 from app.core.request_context import get_request_id
@@ -25,6 +27,7 @@ from app.api.chat import router as chat_router
 from app.api.traces import router as traces_router
 from app.api.health import router as health_router
 from app.api.auth import router as auth_router
+from app.api.demo import router as demo_router
 
 
 def env_bool(name: str, default: bool) -> bool:
@@ -123,6 +126,10 @@ app.include_router(health_router)
 # 令牌签发
 app.include_router(auth_router)
 
+# 本地演示辅助（模拟客服审核）。
+# 默认关闭：未设 SHOPMATE_DEMO_REVIEW=1 时接口一律 404。
+app.include_router(demo_router)
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(
@@ -150,4 +157,25 @@ async def global_exception_handler(
         content={
             "detail": "服务器内部错误，请稍后重试",
         },
+    )
+
+
+# ============================================================
+# 演示用聊天页面
+# ============================================================
+#
+# 挂载在最后：mount("/") 会捕获所有未被 API 路由匹配的路径。
+# 如果放在路由注册之前，/chat、/health 这些接口会先被它接走，
+# 变成 404 —— 因为静态目录里没有叫 chat 的文件。
+#
+# 目录不存在时跳过：测试环境和 Docker 里可能只拷贝了 app/ 目录，
+# 不该因为缺一个前端页面就起不来。
+
+WEB_DIR = Path(__file__).resolve().parent / "web"
+
+if WEB_DIR.is_dir():
+    app.mount(
+        "/",
+        StaticFiles(directory=str(WEB_DIR), html=True),
+        name="web",
     )

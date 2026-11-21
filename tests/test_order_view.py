@@ -185,6 +185,110 @@ def test_refund_hint_explains_why_not_eligible():
 
 
 # ============================================================
+# 模拟审核入口（演示用，默认关闭）
+# ============================================================
+
+
+def test_demo_review_is_404_when_disabled(monkeypatch):
+    """没开 SHOPMATE_DEMO_REVIEW 时，这个路由对外不存在。
+
+    这条是整组里最要紧的：
+        演示用的自批入口如果能被默认打开，
+        整套「审核权限和用户身份分离」的设计就白做了。
+    """
+
+    monkeypatch.delenv("SHOPMATE_DEMO_REVIEW", raising=False)
+
+    ticket = _create()
+
+    response = client.post(
+        f"/demo/review/{ticket.ticket_id}",
+        json={"decision": "approved"},
+        headers=_headers(USER),
+    )
+
+    assert response.status_code == 404
+
+    # 状态没被改动
+    assert _order_view("ORD001")["display_status"] == "refunding"
+
+
+def test_demo_status_reports_switch(monkeypatch):
+    monkeypatch.delenv("SHOPMATE_DEMO_REVIEW", raising=False)
+    assert client.get("/demo/status").json()["review_enabled"] is False
+
+    monkeypatch.setenv("SHOPMATE_DEMO_REVIEW", "1")
+    assert client.get("/demo/status").json()["review_enabled"] is True
+
+
+def test_demo_review_approves_own_ticket(monkeypatch):
+    monkeypatch.setenv("SHOPMATE_DEMO_REVIEW", "1")
+
+    ticket = _create()
+
+    response = client.post(
+        f"/demo/review/{ticket.ticket_id}",
+        json={"decision": "approved"},
+        headers=_headers(USER),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "approved"
+
+    assert _order_view("ORD001")["display_status_label"] == "已退款"
+
+
+def test_demo_review_cannot_touch_other_users_ticket(monkeypatch):
+    """模拟审核也不能越过归属校验。"""
+
+    monkeypatch.setenv("SHOPMATE_DEMO_REVIEW", "1")
+
+    ticket = _create(order_id="ORD003", user_id=OTHER_USER)
+
+    response = client.post(
+        f"/demo/review/{ticket.ticket_id}",
+        json={"decision": "approved"},
+        headers=_headers(USER),
+    )
+
+    assert response.status_code == 404
+
+
+def test_demo_review_rejects_bad_decision(monkeypatch):
+    monkeypatch.setenv("SHOPMATE_DEMO_REVIEW", "1")
+
+    ticket = _create()
+
+    response = client.post(
+        f"/demo/review/{ticket.ticket_id}",
+        json={"decision": "looks_fine"},
+        headers=_headers(USER),
+    )
+
+    assert response.status_code == 400
+
+
+def test_demo_review_cannot_review_twice(monkeypatch):
+    monkeypatch.setenv("SHOPMATE_DEMO_REVIEW", "1")
+
+    ticket = _create()
+
+    client.post(
+        f"/demo/review/{ticket.ticket_id}",
+        json={"decision": "approved"},
+        headers=_headers(USER),
+    )
+
+    response = client.post(
+        f"/demo/review/{ticket.ticket_id}",
+        json={"decision": "rejected"},
+        headers=_headers(USER),
+    )
+
+    assert response.status_code == 409
+
+
+# ============================================================
 # 越权
 # ============================================================
 
