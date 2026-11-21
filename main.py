@@ -1,6 +1,8 @@
 import logging
 import os
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -21,6 +23,7 @@ from app.api.refund import router as refund_router
 from app.api.after_sales import router as after_sales_router
 from app.api.chat import router as chat_router
 from app.api.traces import router as traces_router
+from app.api.health import router as health_router
 from app.api.auth import router as auth_router
 
 
@@ -47,6 +50,40 @@ enable_docs = env_bool(
 )
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期钩子。
+
+    启动时清理过期草稿。
+
+    为什么挂在启动而不是定时任务：
+        这个项目没有引入调度器，加一个 APScheduler
+        只为了删几张过期记录，依赖成本不划算。
+        草稿 10 分钟就过期，真正的堆积速度取决于进程重启频率，
+        而重启频率远低于草稿产生速度。
+
+    只删「已过期 + 未消费」的：
+        已消费的草稿要留着做幂等回放（用户重复说确认时
+        要能返回原工单号），不能一起删掉。
+
+    失败不影响启动：
+        清理是维护动作，不该因为它让整个服务起不来。
+    """
+
+    try:
+        from app.agent.ticket_draft import cleanup_expired_drafts
+
+        removed = cleanup_expired_drafts()
+
+        if removed:
+            logger.info("启动清理过期草稿 | removed=%s", removed)
+
+    except Exception:
+        logger.warning("启动清理过期草稿失败，忽略", exc_info=True)
+
+    yield
+
+
 app = FastAPI(
     title="ShopMate Agent",
     description="智能电商售后 Agent 后端服务",
@@ -54,6 +91,7 @@ app = FastAPI(
     docs_url="/docs" if enable_docs else None,
     redoc_url="/redoc" if enable_docs else None,
     openapi_url="/openapi.json" if enable_docs else None,
+    lifespan=lifespan,
 )
 
 
@@ -79,8 +117,10 @@ app.include_router(after_sales_router)
 app.include_router(chat_router)
 app.include_router(traces_router)
 
-# 令牌签发：客户端拿用户名密码换一个带签名的令牌，
-# 后续请求用 Authorization 头，比自报 X-User-Id 可信
+# 健康检查：放在最前面注册，探活请求不经过业务路由
+app.include_router(health_router)
+
+# 令牌签发
 app.include_router(auth_router)
 
 

@@ -77,6 +77,57 @@ INTENT_SYSTEM_PROMPT = """
 15. 例如：上一轮在询问订单具体问题，用户回答“商品坏了”，应结合上下文判断为 return_query 或 exchange_query；如果无法确定退货还是换货，应选择 unclear。
 16. 如果用户当前消息明显提出了一个全新的问题，应优先判断新问题，不要强行套用旧上下文。
 
+17. 结合【最近对话】理解指代词。
+- 用户说“这个”“那个”“它”“这单”“那单”“刚才那个”“上面那个”时，
+  指向上一轮提到的订单或话题，按上一轮的业务类型判断当前意图。
+- 例如：上一轮在查 ORD001 的订单状态，用户说“那这个能退吗”，
+  应判断为 refund_query（针对具体订单的退款资格），不是 policy_query。
+- 例如：上一轮在查物流，用户说“它到哪了”，应判断为 logistics_query。
+- 如果历史里没有任何可指代对象，且当前消息本身说不清，选择 unclear。
+
+18. 区分「针对具体订单」和「一般政策」。
+- 有明确订单号、或指代上一轮提到的某个订单，且问能否退/换/退多少：
+  属于 refund_query / return_query / exchange_query。
+- 没有任何订单指向，只问规则本身（如“几天内可以退”）：
+  属于 policy_query。
+19. 不要把【最近对话】里的助手回答当成用户诉求，只根据用户当前消息判断。
+
+20. 区分「意图不明」和「意图明确但缺参数」。
+- 用户说“我这个单能不能退钱”，想做什么是清楚的（退款），
+  虽然没给订单号，应按 refund_query，缺订单号由后续追问补充。
+- 但如果用户只描述现象（如“商品坏了”“东西有问题”），
+  没说要退还是要换，仍属于意图不明，判 unclear。
+- 判断标准：用户是否已经表达了「想做什么动作」。
+  表达了动作（退钱、换货、查物流）→ 按动作分类；
+  只描述问题现象、没说动作 → unclear。
+
+21. 区分「查询」「申请」「撤销」和「直接执行」。
+- 用户要求系统**直接执行**有副作用、且系统确实没有的能力，判 out_of_scope：
+  直接退款打款、直接打钱到卡里、取消订单、修改收货地址、催单、补发、
+  改账户密码、开发票、联系人工客服。
+  这类必须明确拒绝，不能让用户以为已经办了。
+- 但「提交售后申请」是系统支持的能力（会先生成草稿再让用户确认）：
+  用户要求提交退款/退货/换货申请、创建售后工单、
+  「帮我申请售后」「帮我建个退款工单」这类，
+  应判 refund_query / return_query / exchange_query，不要判 out_of_scope。
+  注意：用户明确要求「跳过流程、直接打钱」时仍判 out_of_scope。
+- **「撤销已提交的售后申请」同样是系统支持的能力**（会先核对是哪张单、
+  再让用户确认），不是 out_of_scope。
+  用户说「撤销」「撤回」「取消这个申请」「不退了」「不想申请了」
+  并且上文提到的是售后申请/工单时，按上文那个申请的类型分类
+  （退款申请 → refund_query，退货申请 → return_query，换货申请 → exchange_query）。
+  **关键区分**：「取消订单」指把已付款订单本身取消掉，系统没有这个能力 → out_of_scope；
+  「撤销申请 / 撤回工单」指撤回自己已提交的售后申请，系统支持 → 按申请类型分类。
+  两者都可能出现「取消」「撤销」两个字，看动作对象是订单还是售后申请。
+- 极短消息（「撤销吧」「确认」「就这个」）必须结合上文判断，
+  不要因为字面看不出业务含义就判 out_of_scope 或 unclear。
+  上文在讨论某个售后申请，就按那个申请的类型分类。
+- 用户询问「能不能退」「退款条件是什么」「怎么申请」，
+  属于 refund_query / return_query / policy_query。
+- 例如：「帮我直接退款，不用检查资格」→ out_of_scope（要的是立刻打款）；
+  「帮我提交退款申请」「帮我建个退款工单」→ refund_query；
+  「帮我看看这单能不能退」→ refund_query。
+
 输出要求：
 
 只返回合法 JSON，不要输出 Markdown，不要输出解释。
@@ -141,11 +192,106 @@ def _parse_model_result(content: str) -> dict:
     return result
 
 
+def _summarize_history(
+    history: list[dict] | None,
+    max_messages: int = 6,
+    max_chars_per_message: int = 160,
+) -> str:
+    """把最近的对话压缩成一段可放进提示词的文本。
+
+    为什么要压缩：
+        完整对话可能包含很长的助手回答（例如整段政策说明），
+        直接拼进去会挤占上下文、增加 token，也会干扰分类判断。
+        这里只保留最近的几轮，并对每条内容截断。
+
+    为什么只取 user / assistant：
+        tool 消息是工具原始返回，属于机器数据，
+        对判断「用户想干什么」没有帮助，反而容易误导。
+    """
+
+    if not history:
+        return ""
+
+    recent = history[-max_messages:]
+
+    lines: list[str] = []
+
+    for message in recent:
+
+        if not isinstance(message, dict):
+            continue
+
+        role = message.get("role")
+
+        content = (message.get("content") or "").strip()
+
+        if not content:
+            continue
+
+        if role == "user":
+            label = "用户"
+        elif role == "assistant":
+            label = "助手"
+        else:
+            continue
+
+        # 换行压成空格，避免多行内容破坏提示词结构
+        content = content.replace("\r", " ").replace("\n", " ")
+
+        if len(content) > max_chars_per_message:
+            content = content[:max_chars_per_message] + "…"
+
+        lines.append(f"{label}：{content}")
+
+    if not lines:
+        return ""
+
+    return "【最近对话】\n" + "\n".join(lines) + "\n"
+
+
+def _drop_current_message(
+    history: list[dict] | None,
+    user_message: str,
+) -> list[dict] | None:
+    """去掉历史末尾与当前消息重复的那一条。
+
+    调用方（run_agent）会先把用户消息写入数据库再读取历史，
+    所以 history 的最后一条往往就是当前消息本身。
+    """
+
+    if not history:
+        return history
+
+    last = history[-1]
+
+    if not isinstance(last, dict):
+        return history
+
+    if last.get("role") != "user":
+        return history
+
+    last_content = (last.get("content") or "").strip()
+
+    if last_content == (user_message or "").strip():
+        return history[:-1]
+
+    return history
+
+
 def classify_intent(
     user_message: str,
     pending_clarification: dict | None = None,
+    history: list[dict] | None = None,
 ) -> IntentResult:
-    """识别用户意图，必要时结合上一轮待澄清状态。"""
+    """识别用户意图。
+
+    参数：
+        user_message: 用户当前消息
+        pending_clarification: 上一轮的待澄清状态（如果助手刚追问过）
+        history: 对话历史（list[dict]，元素含 role / content）。
+                 用于理解「这个」「那单」这类指代，
+                 只取最近几轮并截断，不会整段塞进提示词。
+    """
 
     if not isinstance(user_message, str):
         raise ValueError("用户输入必须是字符串")
@@ -155,7 +301,7 @@ def classify_intent(
     if not user_message:
         raise ValueError("用户输入不能为空")
 
-    context = ""
+    context_parts: list[str] = []
 
     if pending_clarification:
         original_message = pending_clarification.get(
@@ -168,13 +314,28 @@ def classify_intent(
             "",
         )
 
-        context = f"""
-【上一轮待澄清信息】
+        context_parts.append(
+            f"""【上一轮待澄清信息】
 用户原始问题：{original_message}
 助手追问内容：{clarification_question}
 
 请结合以上上下文理解用户当前回答。
 """
+        )
+
+    # 历史里可能已经包含当前这条消息（调用方先落库再读历史），
+    # 去掉它，否则提示词里会出现两条一样的用户消息。
+    history_for_prompt = _drop_current_message(
+        history,
+        user_message,
+    )
+
+    history_context = _summarize_history(history_for_prompt)
+
+    if history_context:
+        context_parts.append(history_context)
+
+    context = "\n".join(context_parts)
 
     start_time = time.perf_counter()
 
@@ -271,7 +432,7 @@ def classify_intent(
             confidence=0.0,
             need_clarification=True,
             clarification_question=(
-                "暂时无法判断你的问题，请稍后重试。"
+                "抱歉，智能服务暂时不可用，请稍后重试。"
             ),
             error="意图识别服务暂时不可用或返回结果无效",
         )

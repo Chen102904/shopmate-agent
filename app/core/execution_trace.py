@@ -69,10 +69,20 @@ def save_completed_execution_trace(
     request_id: str,
     status: str,
     duration_ms: float,
+    user_id: str | None = None,
 ) -> None:
-    """保存已完成的请求记录，最多保留最近100条。"""
+    """保存已完成的请求记录，最多保留最近100条。
+
+    记录 user_id 的目的：
+        执行轨迹里包含工具调用参数（例如订单号）和最终回答，
+        属于用户私有数据，查询时必须按归属校验。
+    """
+
+    from app.core.identity import get_current_user_id
+
     trace = {
         "request_id": request_id,
+        "user_id": user_id or get_current_user_id(),
         "status": status,
         "duration_ms": round(duration_ms, 2),
         "events": get_execution_trace(),
