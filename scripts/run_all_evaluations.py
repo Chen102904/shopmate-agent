@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -110,7 +111,16 @@ KEY_METRICS = {
 }
 
 
-def run_modules(names: list[str]) -> dict[str, dict]:
+def run_modules(names: list[str], batch_id: str | None = None) -> dict[str, dict]:
+    """依次跑各模块。
+
+    批次号通过环境变量下发给各模块：模块自己生成的 run_id 带各自的时间戳，
+    只有批次号能说明「这十个数是同一次跑出来的」。
+    """
+
+    if batch_id:
+        os.environ["SHOPMATE_EVAL_BATCH"] = batch_id
+
     payloads: dict[str, dict] = {}
     for name in names:
         module_name, _ = MODULES[name]
@@ -177,6 +187,58 @@ def _failure_reason(case: dict) -> str:
         )
 
     return "（未记录原因）"
+
+
+def group_batches(payloads: dict[str, dict]) -> list[tuple[str, list[tuple[str, dict]]]]:
+    """按 run_id 把模块结果归组，最早开跑的批次排在前面。
+
+    为什么需要这个：报告允许用 `--from-results` 汇总不同目录的结果，
+    也可能是某个模块改了统计字段后单独重跑、再重新生成报告。
+    这两种情况下总报告的 run_id 只是一个「主批次」标签，
+    看报告的人没法判断哪些数字是同一批跑出来的。
+    """
+
+    groups: dict[str, list[tuple[str, dict]]] = {}
+    for name, payload in payloads.items():
+        # 优先用批次号。老结果没有这个字段时退回 run_id，会显示成多个批次，
+        # 这是如实反映——那些文件确实是各自单独跑出来的。
+        batch = payload.get("batch_id") or payload.get("run_id") or "-"
+        groups.setdefault(str(batch), []).append((name, payload))
+
+    def first_ts(item: tuple[str, list[tuple[str, dict]]]) -> str:
+        return min((p.get("timestamp") or "") for _, p in item[1])
+
+    return sorted(groups.items(), key=first_ts)
+
+
+def _consistency(payloads: dict[str, dict]) -> list[tuple[str, str, str]]:
+    """核对各模块环境快照里该固定的项是否一致。
+
+    单独重跑本身没问题，但如果重跑时知识库版本或温度跟主批次不同，
+    同一份报告里的数字就不是同一个系统跑出来的，必须先看见。
+    """
+
+    keys = [
+        ("knowledge_version", "知识库版本"),
+        ("temperature", "temperature"),
+        ("embedding_model", "Embedding"),
+        ("llm_model", "模型"),
+        ("rag_score_threshold", "RAG 阈值"),
+    ]
+    rows: list[tuple[str, str, str]] = []
+    for key, label in keys:
+        values = {
+            str((p.get("environment") or {}).get(key))
+            for p in payloads.values()
+            if (p.get("environment") or {}).get(key) is not None
+        }
+        if not values:
+            continue
+        if len(values) == 1:
+            rows.append((label, values.pop(), "一致"))
+        else:
+            rows.append((label, "、".join(sorted(values)), "**不一致**"))
+    return rows
 
 
 def build_report(run_id: str, payloads: dict[str, dict]) -> str:
@@ -251,7 +313,50 @@ def build_report(run_id: str, payloads: dict[str, dict]) -> str:
     add(table(["模块", "数据集版本", "样本数", "类别分布", "运行标识"], rows))
     add("")
 
-    add("## 四、失败样本汇总\n")
+    add("## 四、运行批次\n")
+    batches = group_batches(payloads)
+    if len(batches) == 1:
+        only_id, only_mods = batches[0]
+        add(f"本报告全部 {len(only_mods)} 个模块来自**同一次运行**（单批次），"
+            f"不存在拼接：`{only_id}`。\n")
+    else:
+        add(f"本次报告由 **{len(batches)} 个批次**的结果拼成，"
+            "主 `run_id` 只是其中最新一批的标签，不是全部模块的批次号。\n")
+        rows = []
+        for idx, (batch_id, mods) in enumerate(batches, start=1):
+            stamps = sorted((p.get("timestamp") or "")[11:19] for _, p in mods)
+            rows.append(
+                (
+                    f"{idx}（主批次）" if idx == len(batches) else str(idx),
+                    batch_id,
+                    f"{stamps[0]}–{stamps[-1]}" if len(stamps) > 1 else stamps[0],
+                    len(mods),
+                    "、".join(TITLES[n] for n, _ in mods),
+                )
+            )
+        add(table(["批次", "run_id", "运行时段", "模块数", "包含模块"], rows))
+        add("")
+
+    rows = _consistency(payloads)
+    if rows:
+        add("**一致性核对**（各模块自己记录的环境快照）：\n")
+        add(table(["项", "取值", "跨批次是否一致"], rows))
+        bad = [r for r in rows if "不一致" in r[2]]
+        if bad:
+            add("")
+            add("> ⚠️ 上表存在不一致项：这几批结果不是同一个系统状态跑出来的，"
+                "横向比较前需要先统一环境重跑。\n")
+        elif len(batches) == 1:
+            add("")
+            add("> 单批次运行，环境项必然一致，这里列出来只是留证："
+                "报告被质疑时，不用回头翻日志。\n")
+        else:
+            add("")
+            add("> 环境项全部一致，跨批次拼接不改变比较前提；"
+                "但样本集本身仍以第三节的数据集版本为准。\n")
+    add("")
+
+    add("## 五、失败样本汇总\n")
     for name, payload in payloads.items():
         fails = [c for c in payload["case_results"] if not c.get("passed")]
         if not fails:
@@ -264,7 +369,7 @@ def build_report(run_id: str, payloads: dict[str, dict]) -> str:
             add(f"  - （其余 {len(fails) - 8} 条见 JSON）")
     add("")
 
-    add("## 五、评测限制\n")
+    add("## 六、评测限制\n")
     all_limits: list[str] = []
     for name, payload in payloads.items():
         for lim in payload.get("limitations", []):
@@ -272,7 +377,7 @@ def build_report(run_id: str, payloads: dict[str, dict]) -> str:
     add(limitations_block(all_limits))
     add("")
 
-    add("## 六、与旧评测体系的对比\n")
+    add("## 七、与旧评测体系的对比\n")
     add(
         table(
             ["项", "旧版", "新版"],
@@ -284,7 +389,7 @@ def build_report(run_id: str, payloads: dict[str, dict]) -> str:
                 ("RAG 回答", "关键词命中", "必要事实/关键条件/禁止事实/拒答四类规则"),
                 ("E2E", "只看最终回答", "意图/工具/参数/回答分环节归因，11 字段留证"),
                 ("结果留存", "仅 print", "JSON 落盘 + run_id + 数据集版本"),
-                ("安全/容错", "无", "各 8 条探测/注入"),
+                ("安全/容错", "无", "安全 11 条探测 / 容错 8 条故障注入"),
             ],
         )
     )
@@ -294,10 +399,10 @@ def build_report(run_id: str, payloads: dict[str, dict]) -> str:
         "已标记为口径不明，不作为有效成绩。\n"
     )
 
-    add("## 七、面试讲解与文件清单\n")
+    add("## 八、面试讲解与文件清单\n")
     add(
         "- 面试讲解版：`EVALUATION_INTERVIEW.md`（测试设计、指标口径、结果解读、可能被追问的点）\n"
-        "- 审计报告与修改清单：`EVALUATION_AUDIT.md`\n"
+        "- 历史审计存档（2026-11-20，口径已过期，仅作演进记录）：`EVALUATION_AUDIT.md`\n"
         "- 运行说明：`EVALUATION_GUIDE.md`\n"
         "- 原始结果：`results/<run_id>/*.json`\n"
     )
@@ -350,7 +455,7 @@ def main() -> None:
         run_id = new_run_id()
         print(f"本次 run_id：{run_id}")
         print(f"将运行：{[TITLES[n] for n in names]}")
-        payloads = run_modules(names)
+        payloads = run_modules(names, batch_id=run_id)
 
     out_dir = RESULTS_DIR / run_id
     out_dir.mkdir(parents=True, exist_ok=True)

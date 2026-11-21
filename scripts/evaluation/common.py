@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
 import sys
 import time
@@ -131,6 +132,11 @@ def build_payload(
     """
     payload = {
         "run_id": run_id,
+        # 批次号：由 run_all_evaluations 下发给子模块。
+        # 每个模块自己会生成 run_id（时间戳不同），所以单看 run_id
+        # 无法区分「同一次全量运行的十个模块」和「后来单独重跑的某个模块」。
+        # 批次号只回答一个问题：这些数字是不是同一次跑出来的。
+        "batch_id": os.getenv("SHOPMATE_EVAL_BATCH") or run_id,
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "evaluation_name": evaluation_name,
         "dataset_version": dataset_version,
