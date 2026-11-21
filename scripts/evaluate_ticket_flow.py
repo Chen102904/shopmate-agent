@@ -347,7 +347,7 @@ def run() -> dict:
         case_results=[{**row, "passed": row["passed"]} for row in rows],
         error_details=failures,
         limitations=[
-            "样本量 14 条，覆盖正常流程、闸门拦截、越权与边界，"
+            f"样本量 {len(cases)} 条，覆盖正常流程、闸门拦截、越权与边界，"
             "但不覆盖长期运行后的草稿堆积。",
             "工单数用「跑前清库 + 跑后计数」统计，"
             "评测与业务共用一个 SQLite 文件，不能与线上实例同时跑。",

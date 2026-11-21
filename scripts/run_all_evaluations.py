@@ -286,22 +286,37 @@ def build_report(run_id: str, payloads: dict[str, dict]) -> str:
     for name, (_, dataset_name) in MODULES.items():
         if name not in payloads:
             continue
+        payload = payloads[name]
+
+        # 版本和样本数都取「那次运行记下的」，不是报告生成时重新算的。
+        #
+        # 差别在哪：数据集版本是整文件哈希，连注释都算。
+        # 跑完之后改一句注释，重新算出来的版本就变了，
+        # 报告会显示一个「从未真正跑过」的版本号，
+        # 而样本数也可能和当时实际消费的不一致。
+        recorded_version = str(payload.get("dataset_version") or "-")
+        current_version = dataset_version(dataset_name)
+
+        n: object = payload.get("total_cases", "-")
+
         try:
             cases = load_dataset(dataset_name)
             dist = summarize(cases)
-            n: object = len(cases)
         except Exception:
-            dist, n = {}, "-"
+            dist = {}
+
+        changed = current_version != recorded_version
+        version_cell = recorded_version + ("（文件已变更）" if changed else "")
 
         # 必须显式从 payloads 里取：这个循环没有 payload 变量，
         # 直接写 payload 会拿到上面循环残留的最后一个值，
         # 十行全显示成同一个运行标识（踩过）。
-        run_mark = str(payloads[name].get("run_id") or "-")[-6:]
+        run_mark = str(payload.get("run_id") or "-")[-6:]
 
         rows.append(
             (
                 TITLES[name],
-                dataset_version(dataset_name),
+                version_cell,
                 n,
                 "、".join(f"{k}:{v}" for k, v in dist.items()),
                 # 每行都标出自己那次运行的标识：
@@ -321,13 +336,22 @@ def build_report(run_id: str, payloads: dict[str, dict]) -> str:
             f"不存在拼接：`{only_id}`。\n")
     else:
         add(f"本次报告由 **{len(batches)} 个批次**的结果拼成，"
-            "主 `run_id` 只是其中最新一批的标签，不是全部模块的批次号。\n")
+            "报告头部的 `run_id` 是主批次（模块数最多的那一批）的标签，"
+            "不是全部模块的批次号。\n")
+        # 主批次 = 包含模块最多的那一批（并列时取更早的）。
+        # 早先按「时间最后一个」标，会出现「单独补跑 1 个模块」反而被标成主批次，
+        # 读报告的人会以为那 1 个模块是主体。
+        main_idx = max(
+            range(len(batches)),
+            key=lambda i: (len(batches[i][1]), -i),
+        )
+
         rows = []
         for idx, (batch_id, mods) in enumerate(batches, start=1):
             stamps = sorted((p.get("timestamp") or "")[11:19] for _, p in mods)
             rows.append(
                 (
-                    f"{idx}（主批次）" if idx == len(batches) else str(idx),
+                    f"{idx}（主批次）" if idx - 1 == main_idx else str(idx),
                     batch_id,
                     f"{stamps[0]}–{stamps[-1]}" if len(stamps) > 1 else stamps[0],
                     len(mods),
@@ -341,19 +365,20 @@ def build_report(run_id: str, payloads: dict[str, dict]) -> str:
     if rows:
         add("**一致性核对**（各模块自己记录的环境快照）：\n")
         add(table(["项", "取值", "跨批次是否一致"], rows))
+
         bad = [r for r in rows if "不一致" in r[2]]
+        add("")
         if bad:
-            add("")
             add("> ⚠️ 上表存在不一致项：这几批结果不是同一个系统状态跑出来的，"
                 "横向比较前需要先统一环境重跑。\n")
         elif len(batches) == 1:
-            add("")
+            # 单批次时一致性是必然的，列出来只为留证
             add("> 单批次运行，环境项必然一致，这里列出来只是留证："
                 "报告被质疑时，不用回头翻日志。\n")
         else:
-            add("")
             add("> 环境项全部一致，跨批次拼接不改变比较前提；"
                 "但样本集本身仍以第三节的数据集版本为准。\n")
+
     add("")
 
     add("## 五、失败样本汇总\n")
