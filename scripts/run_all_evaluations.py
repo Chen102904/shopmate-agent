@@ -310,12 +310,37 @@ def main() -> None:
     )
 
     report = build_report(run_id, payloads)
-    report_path = ROOT_DIR / "EVALUATION_REPORT.md"
+
+    # 只有「十个模块都跑了」才允许覆盖总报告。
+    #
+    # 踩过的坑：为了省时间带参数只跑两个模块，
+    # 结果 EVALUATION_REPORT.md 被整份覆盖成只有 60 条样本的「总报告」，
+    # README 里写的却是 288 条 —— 谁点进去都会发现对不上，
+    # 而且看不出哪边是真的。
+    #
+    # 局部运行的结果仍然保存，但放在本次 run 目录下，
+    # 文件名也不叫 EVALUATION_REPORT，避免被当成项目级结论。
+    full_run = set(payloads) == set(MODULES)
+
+    if full_run:
+        report_path = ROOT_DIR / "EVALUATION_REPORT.md"
+    else:
+        report_path = out_dir / "partial_report.md"
+
     report_path.write_text(report, encoding="utf-8")
 
     print("\n" + "=" * 68)
     print(f"汇总 JSON：{out_dir / 'summary.json'}")
-    print(f"总报告：{report_path}")
+
+    if full_run:
+        print(f"总报告：{report_path}")
+    else:
+        missing = [TITLES[n] for n in MODULES if n not in payloads]
+        print(
+            "本次是局部运行，未覆盖 EVALUATION_REPORT.md"
+            f"（缺 {len(missing)} 个模块：{'、'.join(missing)}）"
+        )
+        print(f"局部报告：{report_path}")
 
 
 if __name__ == "__main__":
