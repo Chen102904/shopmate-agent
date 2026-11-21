@@ -1,7 +1,7 @@
 # ShopMate Agent 评测总报告
 
-- run_id：`20261121T171246-f4329f`
-- 生成时间：2026-11-21 17:26:19
+- run_id：`20261121T184610-5b4d8e`
+- 生成时间：2026-11-21 18:59:17
 - 模型：`deepseek-flash`（服务端别名，无法固定具体版本）
 - Embedding：`bge-small-zh-v1.5 (local)`
 - RAG 相似度阈值：`0.6`
@@ -16,7 +16,7 @@
 | 意图识别 | 49 | 46 | 93.9% |
 | 工具选择 | 30 | 27 | 90.0% |
 | 工具参数 | 30 | 30 | 100.0% |
-| RAG 检索 | 30 | 30 | 100.0% |
+| RAG 检索 | 30 | 29 | 96.7% |
 | RAG 回答 | 30 | 30 | 100.0% |
 | Agent 端到端 | 30 | 28 | 93.3% |
 | 售后申请写操作 | 16 | 16 | 100.0% |
@@ -59,10 +59,10 @@
 
 | 指标 | 值 |
 |---|---|
-| hit_at_1 | 0.84 |
-| hit_at_3 | 0.96 |
-| mrr | 0.8933 |
-| precision_at_3 | 0.4 |
+| hit_at_1 | 0.8 |
+| hit_at_3 | 0.92 |
+| mrr | 0.8533 |
+| precision_at_3 | 0.3933 |
 | no_result_rejection_rate | 1.0 |
 
 ### RAG 回答
@@ -79,7 +79,7 @@
 | 指标 | 值 |
 |---|---|
 | e2e_pass_rate | 0.9333 |
-| intent_accuracy | 0.9333 |
+| intent_accuracy | 0.9667 |
 | tool_trajectory_accuracy | 0.9667 |
 | key_param_accuracy | 1.0 |
 | answer_content_accuracy | 1.0 |
@@ -104,7 +104,7 @@
 | normal_severity_pass_rate | 0.9778 |
 | exception_count | 0 |
 | empty_answer_count | 0 |
-| avg_latency_ms | 2755.6 |
+| avg_latency_ms | 2715.6 |
 
 ### 权限与安全（探测）
 
@@ -125,20 +125,20 @@
 
 | 模块 | 数据集版本 | 样本数 | 类别分布 | 运行标识 |
 |---|---|---|---|---|
-| 意图识别 | b8ba048d3fc7 | 49 | order_query:6、logistics_query:8、refund_query:7、return_query:6、exchange_query:5、policy_query:6、unclear:4、out_of_scope:5、nonsense:1、smalltalk:1 | 9e75df |
-| 工具选择 | 2a566ca23dc8 | 30 | single_order:5、single_logistics:5、single_refund:4、single_policy:6、multi_tool:5、negative:4、no_duplicate:1 | 9f7e26 |
-| 工具参数 | ad620c28e10f | 30 | single:20、multi:6、edge:4 | 7f29a5 |
-| RAG 检索 | 7710a9404ac7 | 30 | normal:12、synonym:6、colloquial:4、multi_condition:3、no_result:5 | 33df0f |
-| RAG 回答 | 1b799aa6adb8 | 30 | refund:8、return:5、exchange:4、logistics:4、human:4、reject:5 | a2a60e |
-| Agent 端到端 | 8effd032e08a | 30 | order:4、logistics:4、refund:4、policy:4、multi_tool:3、multi_turn:3、ambiguity:2、missing_param:2、out_of_scope:2、no_knowledge:1、tool_error:1 | 50245b |
-| 售后申请写操作 | f40a10ccda5c | 16 | normal:5、guard:6、boundary:5 | 86db03 |
-| 对抗性输入 | cb98e343d636 | 54 | typo:4、dialect:4、mixed:4、too_short:3、too_long:1、contradiction:4、multi_intent:4、injection:4、emotion:4、overreach:4、out_of_kb:4、boundary:4、weird_format:10 | 9d4cb9 |
-| 权限与安全（探测） | d406ab5acc0e | 11 | 越权查询:1、会话越权:1、提示词泄露:1、规则绕过:1、能力夸大:1、批量泄露:1、数据真实性:1、隐私索取:1、REST越权:2、身份伪造:1 | 3a4ec7 |
-| 容错（mock 注入） | 046ebf705fde | 8 | 主模型超时:1、主模型 5xx:1、主备全挂:1、工具抛异常:1、工具返回非法 JSON:1、模型返回非法工具名:1、超过最大轮数:1、RAG 初始化失败:1 | 044b96 |
+| 意图识别 | b8ba048d3fc7 | 49 | order_query:6、logistics_query:8、refund_query:7、return_query:6、exchange_query:5、policy_query:6、unclear:4、out_of_scope:5、nonsense:1、smalltalk:1 | 5eb577 |
+| 工具选择 | 2a566ca23dc8 | 30 | single_order:5、single_logistics:5、single_refund:4、single_policy:6、multi_tool:5、negative:4、no_duplicate:1 | 16bfa3 |
+| 工具参数 | ad620c28e10f | 30 | single:20、multi:6、edge:4 | 92be4c |
+| RAG 检索 | 7710a9404ac7 | 30 | normal:12、synonym:6、colloquial:4、multi_condition:3、no_result:5 | fdc8ff |
+| RAG 回答 | 1b799aa6adb8 | 30 | refund:8、return:5、exchange:4、logistics:4、human:4、reject:5 | 9ed9c0 |
+| Agent 端到端 | 8effd032e08a | 30 | order:4、logistics:4、refund:4、policy:4、multi_tool:3、multi_turn:3、ambiguity:2、missing_param:2、out_of_scope:2、no_knowledge:1、tool_error:1 | f513de |
+| 售后申请写操作 | f40a10ccda5c | 16 | normal:5、guard:6、boundary:5 | cd9f19 |
+| 对抗性输入 | cb98e343d636 | 54 | typo:4、dialect:4、mixed:4、too_short:3、too_long:1、contradiction:4、multi_intent:4、injection:4、emotion:4、overreach:4、out_of_kb:4、boundary:4、weird_format:10 | c57d49 |
+| 权限与安全（探测） | d406ab5acc0e | 11 | 越权查询:1、会话越权:1、提示词泄露:1、规则绕过:1、能力夸大:1、批量泄露:1、数据真实性:1、隐私索取:1、REST越权:2、身份伪造:1 | cbfe42 |
+| 容错（mock 注入） | 046ebf705fde | 8 | 主模型超时:1、主模型 5xx:1、主备全挂:1、工具抛异常:1、工具返回非法 JSON:1、模型返回非法工具名:1、超过最大轮数:1、RAG 初始化失败:1 | 4ae5f2 |
 
 ## 四、运行批次
 
-本报告全部 10 个模块来自**同一次运行**（单批次），不存在拼接：`20261121T171246-f4329f`。
+本报告全部 10 个模块来自**同一次运行**（单批次），不存在拼接：`20261121T184610-5b4d8e`。
 
 **一致性核对**（各模块自己记录的环境快照）：
 
@@ -164,11 +164,12 @@
   - `T07` 快递怎么还没到 —— 集合不符：预期 ['get_logistics']，实际 []
   - `T09` 帮我看看运输状态 —— 集合不符：预期 ['get_logistics']，实际 []
 - **工具参数**：无失败样本
-- **RAG 检索**：无失败样本
+- **RAG 检索**：1 条失败
+  - `R16` 对处理结果不满意怎么办 —— 正确内容未出现在 Top-5
 - **RAG 回答**：无失败样本
 - **Agent 端到端**：2 条失败
   - `E15` 换货需要什么条件 —— 意图不符：预期 policy_query，实际 exchange_query
-  - `E22` 订单 ORD002 到哪了 → 那签收超过 7 天能退吗 —— 意图不符：预期 policy_query，实际 refund_query
+  - `E22` 订单 ORD002 到哪了 → 那签收超过 7 天能退吗 —— 工具不符：预期 ['search_after_sales_policy']，实际 ['get_logistics', 'search_after_sales_policy']
 - **售后申请写操作**：无失败样本
 - **对抗性输入**：1 条失败
   - `C02` 不是说不能退吗，那到底能不能退 —— 未命中任一期望内容：['签收', '7', '条件', '可以', '取决']
