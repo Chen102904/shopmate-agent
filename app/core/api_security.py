@@ -71,6 +71,21 @@ def _get_rate_limit_key(request: Request) -> str:
         else "unknown"
     )
 
+    # 演示模式下按访客分组，而不是按 IP。
+    #
+    # 原因：走公网隧道时，所有访客的来源 IP 都是隧道出口（同一个），
+    # 按 IP 分组等于把十几个人塞进同一个 20 次/分钟的额度里，
+    # 第一个人聊几句，后面的人就被 429 挡住。
+    #
+    # 代价：X-User-Id 是客户端自报的，换一个就能重置额度。
+    # 所以只在 SHOPMATE_DEMO=1 时启用，生产环境保持按 IP。
+    if route_group == "chat":
+        from app.core.demo_mode import DEMO_MODE
+
+        if DEMO_MODE:
+            guest = request.headers.get("X-User-Id") or client_host
+            return f"guest:{guest}:{route_group}"
+
     return f"{client_host}:{route_group}"
 
 

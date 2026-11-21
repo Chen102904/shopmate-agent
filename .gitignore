@@ -32,6 +32,12 @@ models/
 htmlcov/
 pytest-index.html
 
+# Evaluation run outputs
+# 评测每跑一次就在 results/ 下留一个带时间戳的目录，
+# 里面是当时的分数和样本明细。这些是「跑出来的结果」而不是源码，
+# 提交进去会让仓库迅速膨胀，而且会让人以为是测试 fixtures。
+results/
+
 # Temporary outputs and local debug files
 chat-response.json
 structure.txt

@@ -21,6 +21,7 @@ from app.api.refund import router as refund_router
 from app.api.after_sales import router as after_sales_router
 from app.api.chat import router as chat_router
 from app.api.traces import router as traces_router
+from app.api.auth import router as auth_router
 
 
 def env_bool(name: str, default: bool) -> bool:
@@ -77,6 +78,10 @@ app.include_router(after_sales_router)
 # 注册新增路由
 app.include_router(chat_router)
 app.include_router(traces_router)
+
+# 令牌签发：客户端拿用户名密码换一个带签名的令牌，
+# 后续请求用 Authorization 头，比自报 X-User-Id 可信
+app.include_router(auth_router)
 
 
 @app.exception_handler(Exception)

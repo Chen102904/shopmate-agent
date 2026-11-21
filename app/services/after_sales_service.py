@@ -29,7 +29,7 @@ def create_after_sales_ticket(
 
     # 3. 如果是退款申请，先检查退款资格
     if request_type == AfterSalesType.REFUND:
-        eligibility = check_refund_eligibility(order_id)
+        eligibility = check_refund_eligibility(order_id, user_id)
 
         if not eligibility["eligible"]:
             raise ValueError(eligibility["reason"])
