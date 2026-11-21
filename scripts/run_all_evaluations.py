@@ -122,6 +122,63 @@ def run_modules(names: list[str]) -> dict[str, dict]:
     return payloads
 
 
+def _failure_input(case: dict) -> str:
+    """从失败样本里取出「用户说了什么」，用于报告展示。
+
+    各模块的字段名不一样，这是历史原因：
+        意图识别用 input，端到端用 user_input，写操作只有 turns。
+    与其去改十个脚本的输出格式（风险大、收益小），
+    不如在这里做一次归一化——展示层适配数据，而不是让数据迁就展示。
+    """
+
+    for key in ("input", "user_input", "probe", "question", "utterance"):
+        value = case.get(key)
+        if not value:
+            continue
+
+        # 多轮样本的输入是列表，直接 str() 会显示成 ['第一句', '第二句']
+        if isinstance(value, (list, tuple)):
+            value = " → ".join(str(item) for item in value)
+
+        return str(value).replace("\n", " ")[:60]
+
+    turns = case.get("turns")
+    if isinstance(turns, list) and turns:
+        first = turns[0]
+        if isinstance(first, dict):
+            for key in ("user", "message", "text"):
+                if first.get(key):
+                    return str(first[key]).replace("\n", " ")[:40]
+        else:
+            return str(first).replace("\n", " ")[:40]
+
+    return "（样本未记录输入）"
+
+
+def _failure_reason(case: dict) -> str:
+    """从失败样本里取出失败原因。"""
+
+    reason = case.get("reason")
+    if reason:
+        return str(reason).replace("\n", " ")
+
+    problems = case.get("problems")
+    if isinstance(problems, list) and problems:
+        return "；".join(str(p) for p in problems)
+
+    if case.get("error"):
+        return f"执行异常：{case['error']}"
+
+    # 写操作评测看的是「库里建了几张单」，没有文字原因，直接把数字给出来
+    if "expected_tickets" in case:
+        return (
+            f"预期建单 {case.get('expected_tickets')} 张，"
+            f"实际 {case.get('tickets')} 张"
+        )
+
+    return "（未记录原因）"
+
+
 def build_report(run_id: str, payloads: dict[str, dict]) -> str:
     env = environment_snapshot()
 
@@ -173,15 +230,25 @@ def build_report(run_id: str, payloads: dict[str, dict]) -> str:
             n: object = len(cases)
         except Exception:
             dist, n = {}, "-"
+
+        # 必须显式从 payloads 里取：这个循环没有 payload 变量，
+        # 直接写 payload 会拿到上面循环残留的最后一个值，
+        # 十行全显示成同一个运行标识（踩过）。
+        run_mark = str(payloads[name].get("run_id") or "-")[-6:]
+
         rows.append(
             (
                 TITLES[name],
                 dataset_version(dataset_name),
                 n,
                 "、".join(f"{k}:{v}" for k, v in dist.items()),
+                # 每行都标出自己那次运行的标识：
+                # 报告可能是汇总多次运行拼出来的（比如某个模块改了统计字段后单独重跑），
+                # 把来源写清楚，读者不用猜这些数字是不是同一批跑出来的。
+                run_mark,
             )
         )
-    add(table(["模块", "数据集版本", "样本数", "类别分布"], rows))
+    add(table(["模块", "数据集版本", "样本数", "类别分布", "运行标识"], rows))
     add("")
 
     add("## 四、失败样本汇总\n")
@@ -192,8 +259,7 @@ def build_report(run_id: str, payloads: dict[str, dict]) -> str:
             continue
         add(f"- **{TITLES[name]}**：{len(fails)} 条失败")
         for f in fails[:8]:
-            inp = str(f.get("input") or f.get("probe") or f.get("question") or "")[:40]
-            add(f"  - `{f['id']}` {inp} —— {f.get('reason', '')}")
+            add(f"  - `{f['id']}` {_failure_input(f)} —— {_failure_reason(f)}")
         if len(fails) > 8:
             add(f"  - （其余 {len(fails) - 8} 条见 JSON）")
     add("")

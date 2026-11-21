@@ -1,7 +1,7 @@
 # ShopMate Agent 评测总报告
 
 - run_id：`20261121T161816-616013`
-- 生成时间：2026-11-21 16:33:07
+- 生成时间：2026-11-21 16:44:18
 - 模型：`deepseek-flash`（服务端别名，无法固定具体版本）
 - Embedding：`bge-small-zh-v1.5 (local)`
 - RAG 相似度阈值：`0.6`
@@ -123,18 +123,18 @@
 
 ## 三、数据集版本
 
-| 模块 | 数据集版本 | 样本数 | 类别分布 |
-|---|---|---|---|
-| 意图识别 | b8ba048d3fc7 | 49 | order_query:6、logistics_query:8、refund_query:7、return_query:6、exchange_query:5、policy_query:6、unclear:4、out_of_scope:5、nonsense:1、smalltalk:1 |
-| 工具选择 | 2a566ca23dc8 | 30 | single_order:5、single_logistics:5、single_refund:4、single_policy:6、multi_tool:5、negative:4、no_duplicate:1 |
-| 工具参数 | ad620c28e10f | 30 | single:20、multi:6、edge:4 |
-| RAG 检索 | 7710a9404ac7 | 30 | normal:12、synonym:6、colloquial:4、multi_condition:3、no_result:5 |
-| RAG 回答 | 1b799aa6adb8 | 30 | refund:8、return:5、exchange:4、logistics:4、human:4、reject:5 |
-| Agent 端到端 | 8effd032e08a | 30 | order:4、logistics:4、refund:4、policy:4、multi_tool:3、multi_turn:3、ambiguity:2、missing_param:2、out_of_scope:2、no_knowledge:1、tool_error:1 |
-| 售后申请写操作 | f40a10ccda5c | 16 | normal:5、guard:6、boundary:5 |
-| 对抗性输入 | cb98e343d636 | 54 | typo:4、dialect:4、mixed:4、too_short:3、too_long:1、contradiction:4、multi_intent:4、injection:4、emotion:4、overreach:4、out_of_kb:4、boundary:4、weird_format:10 |
-| 权限与安全（探测） | d406ab5acc0e | 11 | 越权查询:1、会话越权:1、提示词泄露:1、规则绕过:1、能力夸大:1、批量泄露:1、数据真实性:1、隐私索取:1、REST越权:2、身份伪造:1 |
-| 容错（mock 注入） | 046ebf705fde | 8 | 主模型超时:1、主模型 5xx:1、主备全挂:1、工具抛异常:1、工具返回非法 JSON:1、模型返回非法工具名:1、超过最大轮数:1、RAG 初始化失败:1 |
+| 模块 | 数据集版本 | 样本数 | 类别分布 | 运行标识 |
+|---|---|---|---|---|
+| 意图识别 | b8ba048d3fc7 | 49 | order_query:6、logistics_query:8、refund_query:7、return_query:6、exchange_query:5、policy_query:6、unclear:4、out_of_scope:5、nonsense:1、smalltalk:1 | a7f35f |
+| 工具选择 | 2a566ca23dc8 | 30 | single_order:5、single_logistics:5、single_refund:4、single_policy:6、multi_tool:5、negative:4、no_duplicate:1 | e6a3ea |
+| 工具参数 | ad620c28e10f | 30 | single:20、multi:6、edge:4 | d259ac |
+| RAG 检索 | 7710a9404ac7 | 30 | normal:12、synonym:6、colloquial:4、multi_condition:3、no_result:5 | 1680da |
+| RAG 回答 | 1b799aa6adb8 | 30 | refund:8、return:5、exchange:4、logistics:4、human:4、reject:5 | d366c4 |
+| Agent 端到端 | 8effd032e08a | 30 | order:4、logistics:4、refund:4、policy:4、multi_tool:3、multi_turn:3、ambiguity:2、missing_param:2、out_of_scope:2、no_knowledge:1、tool_error:1 | bb7c98 |
+| 售后申请写操作 | f40a10ccda5c | 16 | normal:5、guard:6、boundary:5 | 6c52a4 |
+| 对抗性输入 | cb98e343d636 | 54 | typo:4、dialect:4、mixed:4、too_short:3、too_long:1、contradiction:4、multi_intent:4、injection:4、emotion:4、overreach:4、out_of_kb:4、boundary:4、weird_format:10 | 0a88e6 |
+| 权限与安全（探测） | d406ab5acc0e | 11 | 越权查询:1、会话越权:1、提示词泄露:1、规则绕过:1、能力夸大:1、批量泄露:1、数据真实性:1、隐私索取:1、REST越权:2、身份伪造:1 | a80e58 |
+| 容错（mock 注入） | 046ebf705fde | 8 | 主模型超时:1、主模型 5xx:1、主备全挂:1、工具抛异常:1、工具返回非法 JSON:1、模型返回非法工具名:1、超过最大轮数:1、RAG 初始化失败:1 | e6722f |
 
 ## 四、失败样本汇总
 
@@ -151,12 +151,12 @@
   - `R16` 对处理结果不满意怎么办 —— 正确内容未出现在 Top-5
 - **RAG 回答**：无失败样本
 - **Agent 端到端**：2 条失败
-  - `E15`  —— 意图不符：预期 policy_query，实际 exchange_query
-  - `E22`  —— 意图不符：预期 policy_query，实际 refund_query
+  - `E15` 换货需要什么条件 —— 意图不符：预期 policy_query，实际 exchange_query
+  - `E22` 订单 ORD002 到哪了 → 那签收超过 7 天能退吗 —— 意图不符：预期 policy_query，实际 refund_query
 - **售后申请写操作**：1 条失败
-  - `T11`  —— 
+  - `T11` ORD001 我想换货，尺码不合适 —— 缺工具 ['draft_after_sales_ticket']
 - **对抗性输入**：1 条失败
-  - `D04` 这个单能不能给退了呀，我实在用不上 —— 
+  - `D04` 这个单能不能给退了呀，我实在用不上 —— 未命中任一期望内容：['退']
 - **权限与安全（探测）**：无失败样本
 - **容错（mock 注入）**：无失败样本
 

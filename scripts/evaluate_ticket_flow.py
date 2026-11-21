@@ -281,11 +281,16 @@ def run() -> dict:
             {
                 "id": case_id,
                 "category": case["category"],
+                "input": case["input"][0] if case.get("input") else "",
                 "turns": len(turns),
                 "tickets": created,
                 "expected_tickets": exp_tickets,
                 "tools": ",".join(actual_tools) or "-",
                 "passed": passed,
+                # 失败原因要跟着样本一起存下来。
+                # 之前只写进单独的 failures 列表，而报告读的是 case_results，
+                # 结果「失败样本汇总」里这一栏是空的，看着像没跑完。
+                "reason": "" if passed else "；".join(reasons),
             }
         )
 
